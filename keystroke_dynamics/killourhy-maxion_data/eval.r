@@ -246,14 +246,15 @@ evaluateSubject <- function( X, evalSubject, detectorTrain, detectorScore ) {
 #######################
 cat("Loading the data file\n");
 
-datafile <- 'DSL-StrongPasswordData.txt';
+
+datafile <- '/Users/joshuaelms/Desktop/github_repos/nsf-reu2022/keystroke_dynamics/killourhy-maxion_data/DSL-StrongPasswordData.txt';
 if( ! file.exists(datafile) )
   stop( "Password data file ",datafile," does not exist");
 
 # Retrieve the data and the list of subjects
   
-X <- read.table( datafile, header = TRUE );
-subjects <- sort( levels( X$subject ) );
+X <- read.table( datafile, header = TRUE, sep = "," );
+subjects <- sort( levels( factor( X$subject ) ) );
 
 # For each of the detectors, evaluate the detector on each subject,
 # and record the equal-error rates in a data frame.
@@ -291,3 +292,4 @@ res <- data.frame(eer.mean = colMeans(eers),
                   eer.sd   = apply( eers, 2, sd ));
 
 print( round( res, digits = 3 ) );
+
