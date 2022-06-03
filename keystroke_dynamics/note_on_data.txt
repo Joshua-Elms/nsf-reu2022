@@ -1,0 +1,10 @@
+When bringing in the data from the google drive I shared,
+make sure to create a new folder under "keystroke_dynamics" called "data". 
+
+Inside this folder, you can drop the three files from the drive and unzip the two compressed files. 
+
+After unzipping them, you can optionally delete the zipped files as you won't need them. 
+
+For clarity, we will change the names to the following:
+    filtered_dataset -> clarkson2_files
+    ml_features -> typenet_files
