@@ -130,4 +130,4 @@ dmypy.json
 
 # Added .DS_store
 
-.DS_Store
+data/
