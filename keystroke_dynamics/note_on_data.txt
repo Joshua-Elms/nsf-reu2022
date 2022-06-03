@@ -5,6 +5,9 @@ Inside this folder, you can drop the three files from the drive and unzip the tw
 
 After unzipping them, you can optionally delete the zipped files as you won't need them. 
 
-For clarity, we will change the names to the following:
+For clarity, change the names to the following:
     filtered_dataset -> clarkson2_files
     ml_features -> typenet_files
+    DSL-StrongPasswordData.txt -> cmu_data.txt
+
+After this, we can all write scripts for compatability with anybody running this repository.
