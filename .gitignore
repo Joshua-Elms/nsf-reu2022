@@ -132,4 +132,5 @@ dmypy.json
 .DS_Store
 keystroke_dynamics/.DS_Store
 
+# Ignore user local copies of data
 data/
