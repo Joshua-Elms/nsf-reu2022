@@ -247,7 +247,7 @@ evaluateSubject <- function( X, evalSubject, detectorTrain, detectorScore ) {
 cat("Loading the data file\n");
 
 
-datafile <- '/Users/joshuaelms/Desktop/github_repos/nsf-reu2022/keystroke_dynamics/killourhy-maxion_data/DSL-StrongPasswordData.txt';
+datafile <- '/Users/joshuaelms/Desktop/github_repos/nsf-reu2022/keystroke_dynamics/data/cmu_data.txt';
 if( ! file.exists(datafile) )
   stop( "Password data file ",datafile," does not exist");
 
