@@ -104,6 +104,22 @@ def plot_ROC_curve(tpr, fpr, thresholds, performance, model_name, output_folder)
 
     pass
 
+def format_plots():
+    SMALL_SIZE = 12
+    MEDIUM_SIZE = 18
+    BIGGER_SIZE = 26
+    CHONK_SIZE = 32
+    font = {'family' : 'DIN Condensed',
+            'weight' : 'bold',
+            'size'   : SMALL_SIZE}
+    plt.rc('font', **font)
+    plt.rc('axes', titlesize=BIGGER_SIZE, labelsize=MEDIUM_SIZE, facecolor="xkcd:white")
+    plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+    plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+    plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
+    plt.rc('figure', titlesize=CHONK_SIZE, facecolor="xkcd:white", edgecolor="xkcd:black") #  powder blue
+
+    pass
 
 def calc_model_performance(tpr, fpr, thresholds):
     performance_dict = {}
@@ -129,6 +145,7 @@ def main(data_in, seed, t_start, t_stop, t_step, model, graph_output_folder):
     df = pd.read_csv(data_in, sep = ",", header = 0)
     # establish random number generator
     rng = np.random.default_rng(seed)
+    format_plots()
     X, y = process_input_data(df)
     threshold_lst = [round(i, 2) for i in np.arange(t_start, t_stop, t_step)]
     tpr_fpr_dict = cross_validate(X, threshold_lst, rng, model)
@@ -151,8 +168,6 @@ def main_wrapper():
     }
 
     main(**kwargs)
-
-
 
 if __name__ == "__main__":
     main_wrapper()
