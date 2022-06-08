@@ -99,8 +99,20 @@ def plot_ROC_curve(tpr, fpr, thresholds, performance, model_name, output_folder)
 
 def calc_model_performance(tpr, fpr, thresholds):
     performance_dict = {}
+    
+    # calculating auc
     performance_dict["AUC"] = np.trapz(y = tpr, x = fpr)
     
+    # calculating eer
+    tnr = 1 - np.array(tpr)
+    scores = np.array((tnr, fpr)).T
+    diffs = np.absolute(scores[:, 0] - scores[:, 1])
+    min_index = np.argmin(diffs)
+    lowest_threshold = thresholds[min_index]
+    eer = (tnr[min_index] + fpr[min_index]) / 2
+    performance_dict["EER"] = eer
+    performance_dict["Threshold"] = lowest_threshold
+
     return performance_dict
 
 
@@ -114,6 +126,7 @@ def main(data_in, seed, t_start, t_stop, t_step, model, graph_output_folder):
     tpr_fpr_dict = cross_validate(X, threshold_lst, rng, model)
     tpr, fpr = process_output_data(tpr_fpr_dict)
     performance = calc_model_performance(tpr, fpr, threshold_lst)
+    print(performance)
     plot_ROC_curve(tpr, fpr, threshold_lst, performance, model.__name__, graph_output_folder)
 
 
