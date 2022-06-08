@@ -65,7 +65,6 @@ def cross_validate(X, thresholds, rng, model):
 def process_output_data(scores):
     user_scores_arr_dict = {key: np.array(value) for key, value in scores.items()}
     user_scores_avg_dict = {key: np.mean(value, axis = 0).tolist() for key, value in user_scores_arr_dict.items()}
-    thresholds = [str(key) for key in user_scores_avg_dict.keys()]
     tpr_fpr_scores = [val for val in user_scores_avg_dict.values()]
     tpr_scores = [item[0] for item in tpr_fpr_scores]
     fpr_scores = [item[1] for item in tpr_fpr_scores]
@@ -75,6 +74,7 @@ def process_output_data(scores):
 
 def plot_ROC_curve(tpr, fpr, thresholds, performance, model_name, output_folder):
     fig, ax = plt.subplots()
+    ax.fill_between(fpr, tpr)
     sns.scatterplot(x = fpr, y = tpr, ax = ax)
     ax.set_xlabel("False Positive Rate")
     ax.set_ylabel("True Positive Rate")
@@ -89,10 +89,12 @@ def plot_ROC_curve(tpr, fpr, thresholds, performance, model_name, output_folder)
 
     vals = [i for i in np.arange(0, 1, 0.01)]
     xp = [i for i in np.arange(1, 0, -0.01)]
-    sns.scatterplot(x = vals, y = vals, ax = ax)
-    sns.scatterplot(x = vals, y = xp, ax = ax)
+    sns.lineplot(x = vals, y = vals, ax = ax, color = "red")
+    sns.lineplot(x = vals, y = xp, ax = ax, color = "green")
     fig.suptitle(f"ROC Curve for {model_name}")
-    plt.savefig(f"{output_folder}{model_name}")
+    fig.set_size_inches(10, 7)
+    
+    plt.savefig(f"{output_folder}{model_name}", dpi = 400)
 
     pass
 
@@ -130,12 +132,13 @@ def main(data_in, seed, t_start, t_stop, t_step, model, graph_output_folder):
     plot_ROC_curve(tpr, fpr, threshold_lst, performance, model.__name__, graph_output_folder)
 
 
+
 def main_wrapper():
     kwargs = {
         "data_in": "keystroke_dynamics/data/cmu_data.txt",
         "seed": 8675309,
-        "t_start": 0.5,
-        "t_stop": 25, 
+        "t_start": 1,
+        "t_stop": 24, 
         "t_step": 0.5, 
         "model": Euclidean_Distance,  
         "graph_output_folder": "keystroke_dynamics/cmu_exploration/graphics/",
