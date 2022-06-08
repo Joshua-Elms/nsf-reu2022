@@ -27,3 +27,34 @@ def Euclidean_Distance(train: np.ndarray, test: np.ndarray, threshold: float) ->
     imposter_vector = np.where(sum_diffs > threshold, 0, 1)
 
     return imposter_vector
+
+def z_score (train: np.ndarray, test: np.ndarray, threshold: float) -> np.ndarray:
+    '''
+    compair the zscore to 1.69
+    '''
+    mean = np.mean(train, axis = 0)
+    print("mean: ",mean)
+
+#list of std
+    std = np.std(train, axis = 0, ddof = 1)
+    print("std: ",std)
+    #list of zscore
+    zscore = np.absolute((test - mean)/std)
+    
+    vec_lables = np.where(zscore<threshold, 1,0)
+    
+    thresh2 = .5
+
+
+    test_sums = np.sum(vec_lables, axis = 1)
+    
+
+    test_size = synth_test.shape
+    
+
+    ratio = test_sums/test_size
+    
+
+    pred_lables = np.where(ratio<thresh2, 0, 1)
+
+    return pred_lables
