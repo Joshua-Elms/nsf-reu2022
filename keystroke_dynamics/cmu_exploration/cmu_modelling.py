@@ -93,7 +93,13 @@ def plot_ROC_curve(tpr, fpr, thresholds, performance, model_name, output_folder)
     sns.lineplot(x = vals, y = xp, ax = ax, color = "green")
     fig.suptitle(f"ROC Curve for {model_name}")
     fig.set_size_inches(10, 7)
-    
+    start = .2
+    gap = .2
+    height = 1.05
+    plt.text(start, height, f"EER: {round(performance['EER'], 3) * 100}%")
+    plt.text(start + gap, height, f"Threshold: {round(performance['Threshold'], 3)}")
+    plt.text(start + 2*gap + 0.05, height, f"AUC: {round(performance['AUC'], 3)}")
+
     plt.savefig(f"{output_folder}{model_name}", dpi = 400)
 
     pass
@@ -137,10 +143,10 @@ def main_wrapper():
     kwargs = {
         "data_in": "keystroke_dynamics/data/cmu_data.txt",
         "seed": 8675309,
-        "t_start": 0,
-        "t_stop": 3, 
-        "t_step": 0.05, 
-        "model": z_score,  
+        "t_start": 0.5,
+        "t_stop": 24, 
+        "t_step": 0.5, 
+        "model": Euclidean_Distance,  
         "graph_output_folder": "keystroke_dynamics/cmu_exploration/graphics/",
     }
 
