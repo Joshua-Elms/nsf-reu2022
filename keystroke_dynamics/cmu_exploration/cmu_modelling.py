@@ -143,10 +143,10 @@ def main_wrapper():
     kwargs = {
         "data_in": "keystroke_dynamics/data/cmu_data.txt",
         "seed": 8675309,
-        "t_start": 0.5,
-        "t_stop": 24, 
-        "t_step": 0.5, 
-        "model": Euclidean_Distance,  
+        "t_start": 0,
+        "t_stop": 3, 
+        "t_step": 0.05, 
+        "model": z_score,  
         "graph_output_folder": "keystroke_dynamics/cmu_exploration/graphics/",
     }
 
