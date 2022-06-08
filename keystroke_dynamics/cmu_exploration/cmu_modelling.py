@@ -91,7 +91,7 @@ def plot_ROC_curve(tpr, fpr, thresholds, performance, model_name, output_folder)
     xp = [i for i in np.arange(1, 0, -0.01)]
     sns.lineplot(x = vals, y = vals, ax = ax, color = "red")
     sns.lineplot(x = vals, y = xp, ax = ax, color = "green")
-    fig.suptitle(f"ROC Curve for {model_name}")
+    fig.suptitle(f"ROC Curve: {model_name}")
     fig.set_size_inches(10, 7)
     start = .2
     gap = .2
