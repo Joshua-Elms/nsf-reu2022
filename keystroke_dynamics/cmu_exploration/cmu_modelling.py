@@ -12,15 +12,10 @@ from cmu_exploration.models import *
 
 def process_input_data(df): 
     subjects = df.subject.unique()
-
     dfs_list_by_subject = [df[df.subject == subject] for subject in subjects]
-
     nested_list_by_subject = [df.values.tolist() for df in dfs_list_by_subject]
-
     matrix_by_subject = np.array(nested_list_by_subject)
-
     data = np.copy(matrix_by_subject)
-
     X = data[:, :, 3:]
     y = data[:, :, 0]
 
@@ -69,12 +64,9 @@ def cross_validate(X, thresholds, rng, model):
 
 def process_output_data(scores):
     user_scores_arr_dict = {key: np.array(value) for key, value in scores.items()}
-
     user_scores_avg_dict = {key: np.mean(value, axis = 0).tolist() for key, value in user_scores_arr_dict.items()}
-
     thresholds = [str(key) for key in user_scores_avg_dict.keys()]
     tpr_fpr_scores = [val for val in user_scores_avg_dict.values()]
-
     tpr_scores = [item[0] for item in tpr_fpr_scores]
     fpr_scores = [item[1] for item in tpr_fpr_scores]
 
@@ -83,9 +75,7 @@ def process_output_data(scores):
 
 def plot_ROC_curve(tpr, fpr, thresholds, performance, model_name, output_folder):
     fig, ax = plt.subplots()
-
     sns.scatterplot(x = fpr, y = tpr, ax = ax)
-
     ax.set_xlabel("False Positive Rate")
     ax.set_ylabel("True Positive Rate")
 
@@ -99,12 +89,9 @@ def plot_ROC_curve(tpr, fpr, thresholds, performance, model_name, output_folder)
 
     vals = [i for i in np.arange(0, 1, 0.01)]
     xp = [i for i in np.arange(1, 0, -0.01)]
-
     sns.scatterplot(x = vals, y = vals, ax = ax)
     sns.scatterplot(x = vals, y = xp, ax = ax)
-
     fig.suptitle(f"ROC Curve for {model_name}")
-
     plt.savefig(f"{output_folder}{model_name}")
 
     pass
@@ -120,20 +107,13 @@ def calc_model_performance(tpr, fpr, thresholds):
 def main(data_in, seed, t_start, t_stop, t_step, model, graph_output_folder): 
     # read in data
     df = pd.read_csv(data_in, sep = ",", header = 0)
-
     # establish random number generator
     rng = np.random.default_rng(seed)
-
     X, y = process_input_data(df)
-
     threshold_lst = [round(i, 2) for i in np.arange(t_start, t_stop, t_step)]
-
     tpr_fpr_dict = cross_validate(X, threshold_lst, rng, model)
-
     tpr, fpr = process_output_data(tpr_fpr_dict)
-
     performance = calc_model_performance(tpr, fpr, threshold_lst)
-
     plot_ROC_curve(tpr, fpr, threshold_lst, performance, model.__name__, graph_output_folder)
 
 
