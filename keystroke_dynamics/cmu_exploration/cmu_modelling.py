@@ -181,7 +181,7 @@ def main_wrapper():
         "model": Scaled_Manhattan, 
         "t_start": 0,
         "t_stop": 250, 
-        "t_step": 5, 
+        "t_step": 1, 
     }
 
     main(**kwargs)
