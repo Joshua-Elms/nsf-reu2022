@@ -29,16 +29,17 @@ def cross_validate(X, thresholds, rng, model):
     for user_num, user in enumerate(X):
         # if user_num == 0: 
         # create object to scale data
-        scaler = StandardScaler()
-        scaled_user = scaler.fit_transform(user)
+        # scaler = StandardScaler()
+        # scaled_user = scaler.fit_transform(user)
+        scaled_user = user
 
         # select 200 of 400 samples to use as train, other 200 go to testing for that user
         random_user_indices = np.arange(400)
         rng.shuffle(random_user_indices)
         train_indices = random_user_indices[:200]
         test_user_indices = random_user_indices[200:]
-        train = scaled_user[train_indices]
-        test_user = scaled_user[test_user_indices]
+        train = scaled_user[train_indices].astype("float64")
+        test_user = scaled_user[test_user_indices].astype("float64")
 
         # print("Train")
         # print(train[:10])
@@ -47,7 +48,7 @@ def cross_validate(X, thresholds, rng, model):
         other_user_nums = np.concatenate((np.arange(51)[:user_num], np.arange(51)[user_num+1:]))
         imposter_indices = rng.choice(400, 5)
         test_imposters = X[other_user_nums][:, imposter_indices].reshape((250, 31)).astype("float64")
-        test_imposters = scaler.transform(test_imposters)
+        # test_imposters = scaler.transform(test_imposters)
 
         # compare both test_user and test_imposters against train using some model at various thresholds
         for i, threshold in enumerate(thresholds):
@@ -160,11 +161,27 @@ def main_wrapper():
     kwargs = {
         "data_in": "keystroke_dynamics/data/cmu_data.txt",
         "seed": 8675309,
-        "t_start": 0,
-        "t_stop": 3, 
-        "t_step": 0.05, 
-        "model": z_score,  
         "graph_output_folder": "keystroke_dynamics/cmu_exploration/graphics/",
+
+        # "model": Euclidean,  
+        # "t_start": 0,
+        # "t_stop": 7, 
+        # "t_step": 0.02, 
+
+        # "model": z_score, 
+        # "t_start": 0,
+        # "t_stop": 3.5, 
+        # "t_step": 0.05, 
+
+        # "model": Manhattan, 
+        # "t_start": 0,
+        # "t_stop": 9.5, 
+        # "t_step": 0.1, 
+
+        "model": Scaled_Manhattan, 
+        "t_start": 0,
+        "t_stop": 250, 
+        "t_step": 5, 
     }
 
     main(**kwargs)
