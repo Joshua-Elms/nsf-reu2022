@@ -97,7 +97,7 @@ def plot_ROC_curve(tpr, fpr, thresholds, performance, model_name, output_folder)
     start = .2
     gap = .2
     height = 1.05
-    plt.text(start, height, f"EER: {round(performance['EER'], 3) * 100}%")
+    plt.text(start, height, f"EER: {round(performance['EER'] * 100, 1)}%")
     plt.text(start + gap, height, f"Threshold: {round(performance['Threshold'], 3)}")
     plt.text(start + 2*gap + 0.05, height, f"AUC: {round(performance['AUC'], 3)}")
 
@@ -181,7 +181,7 @@ def main_wrapper():
         "model": Scaled_Manhattan, 
         "t_start": 0,
         "t_stop": 250, 
-        "t_step": 1, 
+        "t_step": 3, 
     }
 
     main(**kwargs)

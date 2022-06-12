@@ -82,8 +82,9 @@ def Scaled_Manhattan(train: np.ndarray, test: np.ndarray, threshold: float) -> n
     mad2 = np.sum(mad1, axis = 0)
     mad3 = mad2 / train.shape[0]
     mad = mad3[np.newaxis, :]
+    std = np.std(train, axis = 0)
     diffs = model[np.newaxis, :] - test
-    abs_diffs = np.absolute(diffs) / mad
+    abs_diffs = np.absolute(diffs) / std # optionally mad instead of std, but std performs marginally better
     sum_diffs = np.sum(abs_diffs, axis = 1)
     imposter_vector = np.where(sum_diffs > threshold, 0, 1)
 
