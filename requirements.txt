@@ -4,4 +4,3 @@ sklearn
 matplotlib
 seaborn
 notebook
-PyQt5
