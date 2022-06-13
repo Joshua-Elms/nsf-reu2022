@@ -27,7 +27,7 @@ doesn't account for things like backspace.
 import os
 
 MAX_TIME = 8000000 
-raw_path = '/Users/kb7777822/Downloads/kristen_buse/clarkson_free_text_keystroke_db/'
+raw_path = '../../data/clarkson2_files/'
 
 for file in os.listdir(raw_path):
     raw_data = open(raw_path + file,'r')
