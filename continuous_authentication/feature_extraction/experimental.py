@@ -23,7 +23,7 @@ def parse_word(word_indices, raw_keystrokes):
             order_dict[f"{letter}{letter_counter[letter_idx]}"] = [lines[i]] # [i] for index instead of value
 
         else: # key not pressed
-            order_dict[f"{letter}{letter_counter[letter_idx]}"] += (lines[i]) # [i] same
+            order_dict[f"{letter}{letter_counter[letter_idx]}"] += [(lines[i])] # [i] same
 
         
     return order_dict
@@ -52,11 +52,11 @@ def test_main():
     
     # [print(nested_keystrokes[i]) for i in range(10)]
 
-    # testing "cat"
-    parsed = parse_word([1, 3, 4, 5, 6, 8], nested_keystrokes)
+    # # testing "cat"
+    # parsed = parse_word([1, 3, 4, 5, 6, 8], nested_keystrokes)
 
-    # # testing "addressable"
-    # parsed = parse_word([i for i in range(11, 32)] + [33], nested_keystrokes)
+    # testing "addressable"
+    parsed = parse_word([i for i in range(11, 32)] + [33], nested_keystrokes)
     print(parsed)
     # [print(line) for line in parsed]
     pass
