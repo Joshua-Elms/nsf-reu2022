@@ -9,10 +9,24 @@ def previous_entry_is_letter(i, sample, letters):
     return sample[i-1] in letters
 
 def parse_word(word_indices, raw_keystrokes):
-    lines = raw_keystrokes[word_indices]
-    
+    lines = tuple(raw_keystrokes[i] for i in word_indices)
 
-    return lines
+    letter_counter = [0 for _ in range(26)]
+    order_dict = {}
+    for i, line in enumerate(lines):
+        timestamp_str, release_str, letter = [line[i] for i in range(3)]
+        timestamp, release = int(timestamp_str), int(release_str)
+        letter_idx = ord(letter) - 65
+
+        if not release: # key was pressed
+            letter_counter[letter_idx] += 1
+            order_dict[f"{letter}{letter_counter[letter_idx]}"] = [lines[i]] # [i] for index instead of value
+
+        else: # key not pressed
+            order_dict[f"{letter}{letter_counter[letter_idx]}"] += (lines[i]) # [i] same
+
+        
+    return order_dict
 
 
 def test_main():
@@ -26,15 +40,16 @@ def test_main():
     with open(sample_path, "r") as f: 
         rm_newline = lambda x: (x[0], x[1], x[2].rstrip("\n"))
         nested_keystrokes = tuple(rm_newline(line.split("\t")) for line in f.readlines())
-        keystroke_arr = np.array(nested_keystrokes)
     
     # [print(nested_keystrokes[i]) for i in range(10)]
-    # for i, event in enumerate(nested_keystrokes):
-    #     if previous_entry_is_letter(i, nested_keystrokes, letters):
-    #         if not_first_or_last(i, nested_keystrokes):
-    #             # start recording word
-    parsed = parse_word([1, 3, 4, 5, 6, 8], keystroke_arr)
+
+    # testing "cat"
+    parsed = parse_word([1, 3, 4, 5, 6, 8], nested_keystrokes)
+
+    # # testing "addressable"
+    # parsed = parse_word([i for i in range(11, 32)] + [33], nested_keystrokes)
     print(parsed)
+    # [print(line) for line in parsed]
     pass
 
 
