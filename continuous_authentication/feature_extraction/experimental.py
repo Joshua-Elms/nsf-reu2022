@@ -14,7 +14,16 @@ def parse_word(word_indices, raw_keystrokes):
 
     return lines
 
+def create_json():
+    x = {
+        'time_stamp': None,
+        'up_or_down': None,
+        'Letter': None
+    }
+    data = []
 
+
+    print(x)
 def test_main():
     # c2_path = PurePath("../../data/clarkson2_files")
     # subject_84500_path_partial = PurePath("84500")
