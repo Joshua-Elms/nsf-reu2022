@@ -10,19 +10,23 @@ def previous_entry_is_letter(i, sample, letters):
 
 
 def test_main():
-    # c2_path = PurePath("../../data/clarkson2_files")
-    # subject_84500_path_partial = PurePath("84500")
-    sample_path = PurePath("../../data/synthetic_c2.txt")
-    letters = [ord]
+    c2_path = PurePath("../../data/clarkson2_files")
+    subject_84500_path_partial = PurePath("84500")
+    sample_path = PurePath(c2_path, subject_84500_path_partial)
+    # sample_path = PurePath("../../data/synthetic_c2.txt")
+    letters = [chr(i) for i in range(65, 91)]
+    word_cnt = 0
 
     with open(sample_path, "r") as f: 
         rm_newline = lambda x: (x[0], x[1], x[2][:-1])
         nested_keystrokes = tuple(rm_newline(line.split("\t")) for line in f.readlines())
     
-    for i, event in enumerate(nested_keystrokes):
-        if previous_entry_is_letter(i, nested_keystrokes, letters)
-            if not_first_or_last(i, nested_keystrokes):
-
+    [print(nested_keystrokes[i]) for i in [0, 1, 2, 3, 5]]
+    # for i, event in enumerate(nested_keystrokes):
+    #     if previous_entry_is_letter(i, nested_keystrokes, letters):
+    #         if not_first_or_last(i, nested_keystrokes):
+    #             # start recording word
+                
     pass
 
 
