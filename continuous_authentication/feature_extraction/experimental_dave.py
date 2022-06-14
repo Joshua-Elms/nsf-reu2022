@@ -28,23 +28,34 @@ def word_index(letters, sample_path):
         keystroke_arr = np.array(nested_keystrokes) 
     non_letters = []
     print(sample_path)
-    size = 14
+    shape = keystroke_arr.shape
+    print("shape: ", shape)
+    size = shape[0]
+    print("size: ", size)
     i = 0 
     non_letter = 0
     #loops until you record 2 key releases
+    end_word = non_letter / 2
     for i in range(size):
-        #while amount of key releases of non letters is not equal to 2, keep recording word
-        if(non_letter != 2):
-            #records non letter key releases
-            if (keystroke_arr[i,2] not in letters):
-                if (keystroke_arr[i,1] == '1'):
-                    non_letters.append(i)
-                    i+= 1
-                    non_letter += 1
-            #until non_letters size is equal to 2 you will add all the indexes to word profile
-            else:
-                word_indeces.append(i)
+        #need to record all words not just first
+        if(end_word % 2) == 0:
+            #while amount of key releases of non letters is not equal to 2, keep recording word
+            #if(end_word % 2) == 0:
+            #if(non_letter != 2):
+                #records non letter key releases
+                if (keystroke_arr[i,2] not in letters):
+                    if (keystroke_arr[i,1] == '1'):
+                        non_letters.append(i)
+                        i+= 1
+                        non_letter += 1
+                #until non_letters size is equal to 2 you will add all the indexes to word profile
+                else:
+                    word_indeces.append(i)
+
+    
+
         
+    #print("word count: ", test_count)
        
 
     print("non letter test:", non_letters)
