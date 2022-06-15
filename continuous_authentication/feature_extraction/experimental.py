@@ -66,8 +66,8 @@ def gen_graph_names(word):
     A utility function to generate both monographs and digraph column names associated with a word
     Example: gen_graph_names("CAT") -> ['m_C1', 'm_A1', 'm_T1', 'DD_C1A1', 'DU_C1A1', 'UD_C1A1', 'UU_C1A1', 'DD_A1T1', 'DU_A1T1', 'UD_A1T1', 'UU_A1T1']
 
-    Args: word (str)
-    Returns: graph_names (list[str, ... str])
+    Args: word <str>
+    Returns: graph_names <list[str, ... str]>
     """
     # letters occurences are counted to make them distinct; "BANANA" has three "A"s, and they might all be typed differently
     letter_counter = [0 for _ in range(26)]
@@ -85,7 +85,18 @@ def gen_graph_names(word):
     return col_names
 
 
-def main():
+def process_sample():
+    """
+    Read in tabular 3-field keystroke data then extract the words and their n-graphs from the data
+
+    Args: 
+        sample_path <PurePath>: where to read the raw data from
+        slice <tuple(lower (int, upper (int))>: range of lines to process
+        
+        
+    Returns: 
+        sample_contents <dict>: same format as persistent JSON profiles
+    """
     # c2_path = PurePath("../../data/clarkson2_files")
     # subject_84500_path_partial = PurePath("84500")
     # sample_path = PurePath(c2_path, subject_84500_path_partial)
@@ -128,6 +139,6 @@ if __name__ == "__main__":
         - DU, DD, UD, UU Digraphs
         - Words
     """
-    main()
+    process_sample()
     
 
