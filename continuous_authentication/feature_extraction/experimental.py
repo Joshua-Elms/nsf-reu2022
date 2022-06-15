@@ -1,5 +1,6 @@
 from pathlib import PurePath
 import os
+import numpy as np
 
 
 def not_first_or_last(i, sample):
@@ -84,6 +85,37 @@ def gen_graph_names(word):
 
     return col_names
 
+def get_word_positions(keystrokes):
+    """
+    """
+    letters = [chr(i) for i in range(65, 91)]
+    word_indices = []
+    non_letters = []
+    shape = keystrokes.shape
+    size = shape[0]
+    i = 1
+    non_letter = 0
+    all_words = []
+
+    is_even_except_zero = lambda n: not (n % 2) if n != 0 else False
+
+    for i in range(size):
+        if (keystrokes[i,2] not in letters):
+            if (keystrokes[i,1] == '1'):
+                    non_letters.append(i)
+                    non_letter += 1
+            #until non_letters size is equal to 2 you will add all the indices to word profile
+        else:
+            word_indices.append(i)
+            i  += 1
+        if (is_even_except_zero(non_letter) == True) and word_indices:
+            n= len(all_words)
+            all_words.insert(n,word_indices)
+            non_letter = 0
+            word_indices = []
+
+    return all_words
+        
 
 def process_sample():
     """
@@ -92,45 +124,29 @@ def process_sample():
     Args: 
         sample_path <PurePath>: where to read the raw data from
         slice <tuple(lower (int, upper (int))>: range of lines to process
-        
+
         
     Returns: 
         sample_contents <dict>: same format as persistent JSON profiles
     """
-    # c2_path = PurePath("../../data/clarkson2_files")
-    # subject_84500_path_partial = PurePath("84500")
-    # sample_path = PurePath(c2_path, subject_84500_path_partial)
-    sample_path = PurePath("synthetic_data/synthetic_c2.txt")
-    letters = [chr(i) for i in range(65, 91)]
-    word_cnt = 0
+    c2_path = PurePath("../../data/clarkson2_files")
+    subject_84500_path_partial = PurePath("84500")
+    sample_path = PurePath(c2_path, subject_84500_path_partial)
+    # sample_path = PurePath("synthetic_data/synthetic_c2.txt")
 
     with open(sample_path, "r") as f: 
         rm_newline = lambda x: (int(x[0]), int(x[1]), x[2].rstrip("\n"))
         nested_keystrokes = tuple(rm_newline(line.split("\t")) for line in f.readlines())
+        keystroke_arr = np.array(nested_keystrokes)
     
-    # [print(nested_keystrokes[i]) for i in range(10)]
+    indices_of_all_words = get_word_positions(keystroke_arr)
 
-    # indices_of_all_words = find_words()
-    indices_of_all_words = [[1, 3, 4, 5, 6, 8]]#, [i for i in range(11, 32)] + [33]]
-
-    output_dict = {}
+    sample_contents = {}
     for single_word_indices in indices_of_all_words:
         word, time, graphs = parse_word(single_word_indices, nested_keystrokes)
-        output_dict[word] = [time, graphs]
-
-    print(output_dict)
-    for key, val in output_dict.items():
-        print(len(val[1]))
+        sample_contents[word] = [time, graphs]
         
-
-    # # testing "cat"
-    # parsed = parse_word([1, 3, 4, 5, 6, 8], nested_keystrokes)
-
-    # # testing "addressable"
-    # parsed = parse_word([i for i in range(11, 32)] + [33], nested_keystrokes)
-    # print(parsed)
-    # [print(line) for line in parsed]
-    pass
+    return sample_contents
 
 if __name__ == "__main__":
     """
@@ -139,6 +155,8 @@ if __name__ == "__main__":
         - DU, DD, UD, UU Digraphs
         - Words
     """
-    process_sample()
+    out = process_sample()
+    for key, value in out.items():
+        print(f"{key}: {value}\n")
     
 
