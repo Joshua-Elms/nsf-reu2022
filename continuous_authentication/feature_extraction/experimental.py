@@ -128,9 +128,13 @@ def get_word_positions(keystrokes):
     start = 0
 
     while start < num_keystrokes:
+        print(start)
         tmp_word = []
         for i in range(start, num_keystrokes):
             timestamp, is_release, character = keystrokes[i]
+
+            if character in ignored:
+                continue
 
             # Don't set in_word to true unless the tmp dict is empty
             if not tmp and character in letters and not is_release:
