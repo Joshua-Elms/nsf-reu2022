@@ -14,7 +14,21 @@ def parse_word(word_indices, raw_keystrokes):
     
 
     return lines
-word_indeces = []
+
+
+def is_even(num):
+    status = True
+    if(num == 0):
+        status = False
+    elif ((num % 2) == 0):
+        status = True
+    else:
+        status = False
+
+    return status
+
+    
+
 def word_index(letters, sample_path):
     #down is 0, up is 1, so start of word has to to be = 0 with last 0 value is non letter 
     #end of word is true if last letter typed has value 1, get rid of each enter value 
@@ -36,18 +50,15 @@ def word_index(letters, sample_path):
     non_letter = 0
     total_dict= []
     #loops until you record 2 key releases
-    end_word = non_letter / 2
 
-
+    
 
     for i in range(size):
         #need to record all words not just first
-
-
         #we need to seperate after each even count for this algorith
         #Once it reaches an even count we want to take that list of indexes and add them to an overall list.
         #Each list will have the index's of the keystrokes for the word. seperate list for each different word. 
-        if(non_letter % 2) == 0:
+        #if(non_letter % 2) == 0:
             #while amount of key releases of non letters is not equal to 2, keep recording word
             #if(end_word % 2) == 0:
             #if(non_letter != 2):
@@ -55,11 +66,19 @@ def word_index(letters, sample_path):
             if (keystroke_arr[i,2] not in letters):
                 if (keystroke_arr[i,1] == '1'):
                         non_letters.append(i)
-                        i+= 1
                         non_letter += 1
                 #until non_letters size is equal to 2 you will add all the indexes to word profile
-            else :
+            else:
                 word_indeces.append(i)
+                i  += 1
+            if (is_even(non_letter) == True):
+                n= len(total_dict)
+                total_dict.insert(n,word_indeces)
+                non_letter = 0
+                word_indeces = []
+
+                
+            
                 
             
 
