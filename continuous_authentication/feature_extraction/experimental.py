@@ -115,7 +115,52 @@ def get_word_positions(keystrokes):
             word_indices = []
 
     return all_words
-        
+
+def get_word_positions(keystrokes):
+    """
+    """
+    tmp = {}
+    in_word = False
+    all_words = []
+    letters = [chr(i) for i in range(65, 91)]
+    ignored = ["LShiftKey", "RShiftKey"]
+    num_keystrokes = len(keystrokes)
+    start = 0
+
+    while start < num_keystrokes:
+        tmp_word = []
+        for i in range(start, num_keystrokes):
+            timestamp, is_release, character = keystrokes[i]
+
+            # Don't set in_word to true unless the tmp dict is empty
+            if not tmp and character in letters and not is_release:
+                in_word = True
+
+            # If character
+            if (character in letters) and (not is_release):
+                if in_word:
+                    tmp[character] = i
+                    tmp_word.append(i)
+
+            elif (character in letters) and (is_release):
+                if character in tmp:
+                    tmp_word.append(i)
+                    tmp.pop(character)
+                    continue
+
+            elif (character not in ignored) and (not is_release):
+                in_word = False
+                start = i + 1
+
+            elif (character not in ignored) and is_release and not tmp_word: 
+                start = i + 1
+
+            if not tmp and tmp_word:
+                all_words.append(tmp_word)
+                break
+                
+    return [sorted(lst) for lst in all_words]
+
 
 def process_sample():
     """
@@ -139,7 +184,7 @@ def process_sample():
         nested_keystrokes = tuple(rm_newline(line.split("\t")) for line in f.readlines())
         keystroke_arr = np.array(nested_keystrokes)
     
-    indices_of_all_words = get_word_positions(keystroke_arr)
+    indices_of_all_words = get_word_positions(nested_keystrokes)
 
     sample_contents = {}
     for single_word_indices in indices_of_all_words:
