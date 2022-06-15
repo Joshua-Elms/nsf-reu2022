@@ -82,7 +82,7 @@ def test_main():
     # [print(nested_keystrokes[i]) for i in range(10)]
 
     # indices_of_all_words = find_words()
-    indices_of_all_words = [[1, 3, 4, 5, 6, 8], [i for i in range(11, 32)] + [33]]
+    indices_of_all_words = [[1, 3, 4, 5, 6, 8]]#, [i for i in range(11, 32)] + [33]]
 
     output_dict = {}
     for single_word_indices in indices_of_all_words:

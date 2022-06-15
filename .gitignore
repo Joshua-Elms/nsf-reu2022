@@ -136,4 +136,4 @@ keystroke_dynamics/.DS_Store
 data/
 
 # Ignore personal launch.json
-.vscode/
+.vscode/launch.json
