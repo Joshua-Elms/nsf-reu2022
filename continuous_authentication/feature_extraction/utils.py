@@ -1,4 +1,8 @@
 def gen_graph_names(word):
+    """
+    A utility function to generate both monographs and digraph column names associated with a word
+    Example: gen_graph_names("CAT") -> [""]
+    """
     # count letters first
     letter_counter = [0 for _ in range(26)]
     subscripted_word = []
@@ -14,5 +18,4 @@ def gen_graph_names(word):
 
     return col_names
 
-
-print(gen_graph_names("BANANA"))
+print(gen_graph_names("CAT"))

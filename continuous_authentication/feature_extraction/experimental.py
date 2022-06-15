@@ -9,10 +9,19 @@ def previous_entry_is_letter(i, sample, letters):
     return sample[i-1] in letters
 
 def parse_word(word_indices, raw_keystrokes):
-    lines = tuple(raw_keystrokes[i] for i in word_indices)
+    """
+    Args: 
+        word_indices: list of indices that comprise every key press/release in a given word in the raw keystroke data
+        raw_keystrokes: [[keystroke_event_1],...,[keystroke_event_n]]; those events contain timestamp (int), press/release (int/bool), and key pressed (str)
 
-    letter_counter = [0 for _ in range(26)]
-    order_dict = {}
+    Returns: 
+        An iterable object containing the word typed (str), the timestamp of the first keypress in the word (int), and the timing vector for the word (list)
+    """
+    lines = tuple(raw_keystrokes[i] for i in word_indices) # pulling out keystrokes that make up word
+
+    ### Determine the order each of each keypress in word ###
+    letter_counter = [0 for _ in range(26)] 
+    order_dict = {} # order of letters typed is stored in case user releases keys in different order than they press them
     for i, line in enumerate(lines):
         timestamp, release, letter = [line[i] for i in range(3)]
         letter_idx = ord(letter) - 65
@@ -24,6 +33,7 @@ def parse_word(word_indices, raw_keystrokes):
         else: # key not pressed
             order_dict[f"{letter}{letter_counter[letter_idx]}"] += [lines[i]] # [i] same
 
+    ### Calculate monographs and digraphs associated with word ###
     dict_keys = [key for key in order_dict.keys()]
     num_letters = len(dict_keys)
     digraphs = [] 
@@ -42,16 +52,24 @@ def parse_word(word_indices, raw_keystrokes):
             digraphs.append(next_d[0] - this_u[0]) # ud
             digraphs.append(next_u[0] - this_u[0]) # uu
         
+    ### Combine results and prep for output ###
     word = "".join([key[0] for key in dict_keys])
-
     all_graphs = monographs + digraphs
     timestamp_first_keypress = lines[0][0]
     word_info = (word, timestamp_first_keypress, all_graphs)
 
     return word_info
 
+
 def gen_graph_names(word):
-    # count letters first
+    """
+    A utility function to generate both monographs and digraph column names associated with a word
+    Example: gen_graph_names("CAT") -> ['m_C1', 'm_A1', 'm_T1', 'DD_C1A1', 'DU_C1A1', 'UD_C1A1', 'UU_C1A1', 'DD_A1T1', 'DU_A1T1', 'UD_A1T1', 'UU_A1T1']
+
+    Args: word (str)
+    Returns: graph_names (list[str, ... str])
+    """
+    # letters occurences are counted to make them distinct; "BANANA" has three "A"s, and they might all be typed differently
     letter_counter = [0 for _ in range(26)]
     subscripted_word = []
     for letter in word:

@@ -1,3 +1,0 @@
-Things I want this function to do: 
-
-    Output a 
