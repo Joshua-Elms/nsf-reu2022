@@ -18,4 +18,5 @@ def gen_graph_names(word):
 
     return col_names
 
-print(gen_graph_names("CAT"))
+if __name__ == "__main__":
+    print(gen_graph_names("CAT"))
