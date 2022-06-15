@@ -85,7 +85,7 @@ def gen_graph_names(word):
     return col_names
 
 
-def test_main():
+def main():
     # c2_path = PurePath("../../data/clarkson2_files")
     # subject_84500_path_partial = PurePath("84500")
     # sample_path = PurePath(c2_path, subject_84500_path_partial)
@@ -121,11 +121,6 @@ def test_main():
     # [print(line) for line in parsed]
     pass
 
-
-def main():
-    pass
-
-
 if __name__ == "__main__":
     """
     List of features to be extracted:
@@ -133,6 +128,6 @@ if __name__ == "__main__":
         - DU, DD, UD, UU Digraphs
         - Words
     """
-    test_main()
+    main()
     
 
