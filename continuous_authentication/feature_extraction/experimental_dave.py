@@ -34,30 +34,40 @@ def word_index(letters, sample_path):
     print("size: ", size)
     i = 0 
     non_letter = 0
+    total_dict= []
     #loops until you record 2 key releases
     end_word = non_letter / 2
+
+
+
     for i in range(size):
         #need to record all words not just first
+
+
+        #we need to seperate after each even count for this algorith
+        #Once it reaches an even count we want to take that list of indexes and add them to an overall list.
+        #Each list will have the index's of the keystrokes for the word. seperate list for each different word. 
         if(end_word % 2) == 0:
             #while amount of key releases of non letters is not equal to 2, keep recording word
             #if(end_word % 2) == 0:
             #if(non_letter != 2):
                 #records non letter key releases
-                if (keystroke_arr[i,2] not in letters):
-                    if (keystroke_arr[i,1] == '1'):
+            if (keystroke_arr[i,2] not in letters):
+                if (keystroke_arr[i,1] == '1'):
                         non_letters.append(i)
                         i+= 1
                         non_letter += 1
                 #until non_letters size is equal to 2 you will add all the indexes to word profile
-                else:
-                    word_indeces.append(i)
+            else:
+                word_indeces.append(i)
+        else:
+            total_dict.append[word_indeces]
 
     
 
-        
+        total_dict.append[word_indeces]
     #print("word count: ", test_count)
-       
-
+    print("total dict test: ", total_dict)
     print("non letter test:", non_letters)
 
     
