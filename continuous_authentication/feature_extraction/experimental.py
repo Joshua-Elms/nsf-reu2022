@@ -2,13 +2,6 @@ from pathlib import PurePath
 import os
 import numpy as np
 
-
-def not_first_or_last(i, sample):
-    return not ( (i == 0) or (i == len(sample)-1) )
-
-def previous_entry_is_letter(i, sample, letters):
-    return sample[i-1] in letters
-
 def parse_word(word_indices, raw_keystrokes):
     """
     Args: 
@@ -61,7 +54,6 @@ def parse_word(word_indices, raw_keystrokes):
 
     return word_info
 
-
 def gen_graph_names(word):
     """
     A utility function to generate both monographs and digraph column names associated with a word
@@ -85,39 +77,34 @@ def gen_graph_names(word):
 
     return col_names
 
-def get_word_positions(keystrokes):
-    """
-    """
+def clean_text(keystrokes):
     letters = [chr(i) for i in range(65, 91)]
-    word_indices = []
-    non_letters = []
-    shape = keystrokes.shape
-    size = shape[0]
-    i = 1
-    non_letter = 0
-    all_words = []
+    result = [arr[2] for arr in keystrokes]
+    ignored = ["LShiftKey", "RShiftKey"]
+    added_sep = False
+    out_lst = []
 
-    is_even_except_zero = lambda n: not (n % 2) if n != 0 else False
+    for i, char in enumerate(result):
+        if char in letters:
+            out_lst += [i]
 
-    for i in range(size):
-        if (keystrokes[i,2] not in letters):
-            if (keystrokes[i,1] == '1'):
-                    non_letters.append(i)
-                    non_letter += 1
-            #until non_letters size is equal to 2 you will add all the indices to word profile
+            if added_sep:
+                added_sep = False
+        
+        elif char in ignored:
+            continue
+
         else:
-            word_indices.append(i)
-            i  += 1
-        if (is_even_except_zero(non_letter) == True) and word_indices:
-            n= len(all_words)
-            all_words.insert(n,word_indices)
-            non_letter = 0
-            word_indices = []
+            if not added_sep:
+                out_lst += [-1]
+                added_sep = True
 
-    return all_words
+    return out_lst
 
-def get_word_positions(keystrokes):
+# def get_word_positions(keystrokes):
     """
+    Loop through data
+
     """
     tmp = {}
     in_word = False
@@ -165,6 +152,68 @@ def get_word_positions(keystrokes):
                 
     return [sorted(lst) for lst in all_words]
 
+def get_word_positions(keystrokes):
+    pressed = {}
+    in_word = False
+    all_words = []
+    num_keystrokes = len(keystrokes)
+    start = 0
+    current_word = []
+    sep = "-"
+    last_index_reached = 0
+
+    while last_index_reached < num_keystrokes-1:
+        print(start)
+        for i in range(start, num_keystrokes):
+            last_index_reached = i
+            time, is_release, letter = keystrokes[i]
+
+            if not in_word and not pressed:
+                if current_word:
+                    # done pressing all keys, haven't yet added to all_words
+                    all_words.append(current_word)
+                    current_word = []
+                    break
+
+                else:
+                    if letter != sep:
+                        # begin condition
+                        in_word = True
+                        break
+
+                    else:
+                        # skip separator
+                        start += 1
+                        break
+
+            elif not in_word and pressed:
+                # waiting for last letter release
+                if letter in pressed and is_release:
+                    current_word.append(pressed.pop(letter))
+                    current_word.append(i)
+
+                else: continue
+
+            else:
+                if letter != sep:
+                    # detected non-separator
+                    if not is_release:
+                        # add pressed key to pressed
+                        pressed[letter] = i
+
+                    else: 
+                        # search for released key in pressed; if found, add to current_word
+                        if letter in pressed:
+                            current_word.append(pressed.pop(letter))
+                            current_word.append(i)
+
+                        else: continue
+                else: 
+                    # detected separator
+                    in_word = False
+                    start = i + 1
+
+    return all_words
 
 def process_sample():
     """
@@ -187,25 +236,37 @@ def process_sample():
         rm_newline = lambda x: (int(x[0]), int(x[1]), x[2].rstrip("\n"))
         nested_keystrokes = tuple(rm_newline(line.split("\t")) for line in f.readlines())
         keystroke_arr = np.array(nested_keystrokes)
+
+    cleaned_indices = clean_text(nested_keystrokes)
     
-    indices_of_all_words = get_word_positions(nested_keystrokes)
+    cleaned_keystrokes = [nested_keystrokes[i] if i >= 0  else (None, None, "-") for i in cleaned_indices]
+
+    # [print(i) for i in cleaned_keystrokes]
+    
+    indices_of_all_words = get_word_positions(cleaned_keystrokes)
 
     sample_contents = {}
-    for single_word_indices in indices_of_all_words:
-        word, time, graphs = parse_word(single_word_indices, nested_keystrokes)
-        sample_contents[word] = [time, graphs]
+    for j, single_word_indices in enumerate(indices_of_all_words):
+        word = "".join([cleaned_keystrokes[i][-1] for i in single_word_indices])
+        print(f"{j}: {word}")
+        word, time, graphs = parse_word(single_word_indices, cleaned_keystrokes)
+        if word in sample_contents:
+            sample_contents[word].append([time, graphs])
+        
+        else:
+            sample_contents[word] = [[time, graphs]]
+
+    
+
+    # [print(f'{"".join([cleaned_keystrokes[i][-1] if i else [for i in word])}') for word in indices_of_all_words] 
         
     return sample_contents
 
 if __name__ == "__main__":
-    """
-    List of features to be extracted:
-        - Monographs
-        - DU, DD, UD, UU Digraphs
-        - Words
-    """
     out = process_sample()
     for key, value in out.items():
-        print(f"{key}: {value}\n")
+        # print(f"{key}: {value}\n")
+        # print(key)
+        pass
     
 

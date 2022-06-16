@@ -29,7 +29,9 @@ import os
 MAX_TIME = 8000000 
 raw_path = '../../data/clarkson2_files/'
 
-for file in os.listdir(raw_path):
+for i, file in enumerate(os.listdir(raw_path)):
+    if i != 0:
+        break
     raw_data = open(raw_path + file,'r')
     user = os.fsdecode(file)
     processed_data_m = open('m_graphs_words_' + user + '.txt','w')
