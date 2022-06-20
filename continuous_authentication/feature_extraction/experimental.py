@@ -1,5 +1,6 @@
 from pathlib import PurePath
 import os
+import json
 
 def gen_graph_names(word):
     """
@@ -196,13 +197,38 @@ def process_sample(nested_keystrokes):
         word, time, graphs = parse_word(single_word_indices, cleaned_keystrokes)
 
         if word in sample_contents:
-            sample_contents[word].append([time, graphs])
+            sample_contents[word]["occurence_count"] += 1
+            sample_contents[word]["timing_vectors"].append([time, graphs])
         
         else:
-            sample_contents[word] = [[time, graphs]]
+            sample_contents[word] = {
+                "occurence_count": 1,
+                "timing_vectors": [[time, graphs]]
+            }
 
     return sample_contents
 
+def write_batch_to_json():
+    c2_path = PurePath("../../data/clarkson2_files")
+    user_profile_folder = PurePath("../../data/processed_c2_data")
+    files = os.listdir(c2_path)
+
+    for i, file in enumerate(files):
+        user_path = PurePath(user_profile_folder, PurePath(f"user_{file}.json"))
+        if file == ".DS_Store":
+            break
+
+        partial = PurePath(file)
+        full_path = PurePath(c2_path, partial)
+        keystrokes = file_to_nested_tuples(full_path)
+        output = process_sample(keystrokes)
+        with open(user_path, "w") as f:
+            json.dump(output, f, indent=4)
+
+        print(f"Created JSON for user {file}")
+
+        pass
+        
 def test_many():
     c2_path = PurePath("../../data/clarkson2_files")
     sample_path = PurePath("synthetic_data/synthetic_c2.txt")
@@ -215,8 +241,6 @@ def test_many():
         except ValueError:
             continue
 
-        if int(file) != 991447:
-            break
         partial = PurePath(file)
         full_path = PurePath(c2_path, partial)
         keystrokes = file_to_nested_tuples(full_path)
@@ -224,12 +248,11 @@ def test_many():
         print("-" * 50)
         print(f"File Name: {file}\nFile Rank: {i}/{len(files)}")
         for i, item in enumerate(output.items()):
-            key, val = item
             if i < 200:
-                print(key) 
+                print(item)
 
     pass
     
 if __name__ == "__main__":
-   test_many()
+   write_batch_to_json()
 
