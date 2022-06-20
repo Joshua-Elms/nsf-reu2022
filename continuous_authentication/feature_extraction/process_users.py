@@ -8,7 +8,6 @@ sys.path.append("../../")
 
 from parse_utils import *
 
-
 def write_batch_to_json():
     c2_path = PurePath("../../data/clarkson2_files")
     user_profile_folder = PurePath("../../data/processed_c2_data")

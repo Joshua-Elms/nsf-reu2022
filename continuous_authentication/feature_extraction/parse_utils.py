@@ -1,6 +1,3 @@
-from pathlib import PurePath
-import os
-import json
 
 def gen_graph_names(word):
     """
@@ -208,31 +205,6 @@ def process_sample(nested_keystrokes):
 
     return sample_contents
         
-def test_many():
-    c2_path = PurePath("../../data/clarkson2_files")
-    sample_path = PurePath("synthetic_data/synthetic_c2.txt")
-    files = os.listdir(c2_path)
-
-    for i, file in enumerate(files):
-        try:
-            int(file)
-
-        except ValueError:
-            continue
-
-        partial = PurePath(file)
-        full_path = PurePath(c2_path, partial)
-        keystrokes = file_to_nested_tuples(full_path)
-        output = process_sample(keystrokes)
-        print("-" * 50)
-        print(f"File Name: {file}\nFile Rank: {i}/{len(files)}")
-        for i, item in enumerate(output.keys()):
-            if i < 200:
-                print(item)
-
-    pass
-    
 if __name__ == "__main__":
-#    write_batch_to_json()
-    test_many()
+    pass
 
