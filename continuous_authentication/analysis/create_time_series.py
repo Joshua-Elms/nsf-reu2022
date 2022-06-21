@@ -40,12 +40,6 @@ def main():
     default_time_series_path = PurePath("../../data/user_time_series/")
     default_raw_path = PurePath("../../data/clarkson2_files/")
     user_list = [user for user in os.listdir(default_raw_path) if user != ".DS_Store"]
-    user = user_list[0]
-
-    user_json_paths = [PurePath(default_json_path, PurePath(f"user_{user}.json")) for user in user_list]
-    user_ts_paths = [PurePath(default_time_series_path, PurePath(f"user_{user}.csv"))]
-    user_json_path = user_json_paths[0]
-    user_ts_path = user_ts_paths[0]
 
     for user in user_list: 
         user_json_path = PurePath(default_json_path, PurePath(f"user_{user}.json"))
