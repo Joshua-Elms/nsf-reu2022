@@ -2,11 +2,21 @@ from pathlib import PurePath
 import os
 
 def gen_basic_stats(timeseries_lst, threshold):
+    
     occurence_counter = {}
     for i, instance in enumerate(timeseries_lst):
         timestamp, word = instance
         if word in occurence_counter:
-            occurence_counter[word]
+            occurence_counter[word]["count"] += 1
+            occurence_counter[word]["timestamps"].append(timestamp)
+
+            if occurence_counter[word]["count"] >= threshold and not occurence_counter[word]["hit_threshold"]:
+                time = timestamp - occurence_counter[word]["timestamps"][0]
+                print(f"{word} took {time} nanoseconds  to hit the threshold!")
+                occurence_counter[word]["hit_threshold"] = True
+
+        else:
+            occurence_counter[word] = {"count": 1, "hit_threshold": False, "timestamps": [timestamp]}
 
 def main():
     default_time_series_path = PurePath("../../data/user_time_series/")
@@ -21,9 +31,7 @@ def main():
         split_lines = [line.split() for line in f.readlines()]
         data = [(int(line[0]), line[1])  for line in split_lines]
 
-    generate_
-
-    data = user_ts_path
+    gen_basic_stats(data, 3)
 
 if __name__ == "__main__":
     main()
