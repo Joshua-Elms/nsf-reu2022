@@ -21,34 +21,47 @@ def word_conditions(content):
 
     return is_word
 
-def create_sorted_list(user_dict):
-    word_occurences = [(key, user_dict[key]["timing_vectors"]) for key in user_dict]
-    filtered_words = tuple(filter(word_conditions, word_occurences))
-    sorted_filtered_words = sorted(filtered_words, key = lambda x: x[1], reverse = True)
+def create_sorted_filtered_list(user_dict):
+    tmp_lst = []
+    for word in user_dict:
+        timing_vectors = user_dict[word]["timing_vectors"]
 
-    for i, word in enumerate(sorted_filtered_words):
-        if i < 10:
-            print(word)
+        for instance in timing_vectors:
+            timestamp = instance[0]
+            tmp_lst.append((word, timestamp))
 
-    return sorted_filtered_words
+    filtered_tmp = tuple(filter(word_conditions, tmp_lst))
+    sorted_lst = sorted(filtered_tmp, key = lambda x: (x[1], x[0]), reverse = False)
+
+    return sorted_lst
 
 def main():
-    user_json_path = PurePath("../../data/user_json_files/")
-    user_time_series_path = PurePath("../../data/user_time_series/")
-    user_raw_path = PurePath("../../data/clarkson2_files/")
-    user_list = [user for user in os.listdir(user_raw_path) if user != ".DS_Store"]
+    default_json_path = PurePath("../../data/user_json_files/")
+    default_time_series_path = PurePath("../../data/user_time_series/")
+    default_raw_path = PurePath("../../data/clarkson2_files/")
+    user_list = [user for user in os.listdir(default_raw_path) if user != ".DS_Store"]
+    user = user_list[0]
 
-    user_paths = [PurePath(user_json_path, PurePath(f"user_{user}.json")) for user in user_list]
+    user_json_paths = [PurePath(default_json_path, PurePath(f"user_{user}.json")) for user in user_list]
+    user_ts_paths = [PurePath(default_time_series_path, PurePath(f"user_{user}.csv"))]
+    user_json_path = user_json_paths[0]
+    user_ts_path = user_ts_paths[0]
 
-    all_user_sorted_words = []
-    for i, user_path in enumerate(user_paths):
-        with open(user_path, "r") as f:
+    for user in user_list: 
+        user_json_path = PurePath(default_json_path, PurePath(f"user_{user}.json"))
+        user_ts_path = PurePath(default_time_series_path, PurePath(f"user_{user}.csv"))
+
+        with open(user_json_path, "r") as f:
             user_data = load(f)
 
-        sorted_words = create_sorted_list(user_data)
-        all_user_sorted_words.append(sorted_words)
-        
-    print(len(all_user_sorted_words))
+        sorted_words = create_sorted_filtered_list(user_data)
+
+        with open(user_ts_path, "w") as f:
+            for word, timestamp in sorted_words:
+                f.write(f"{timestamp}   {word}\n")
+
+        print(f"Finished writing to {user_ts_path}")
+
 
 if __name__ == "__main__":
     main()
