@@ -1,7 +1,7 @@
 from pathlib import PurePath
 import os
 
-def gen_basic_stats(timeseries_lst, threshold):
+def time_to_threshold_for_n_words(timeseries_lst, threshold, num_words):
     
     occurence_counter = {}
     for i, instance in enumerate(timeseries_lst):
