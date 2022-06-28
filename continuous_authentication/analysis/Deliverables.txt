@@ -1,9 +1,0 @@
-Deliverables
-
-1) Filter out words of w/ length < 2 or > 14
-
-2) List of all words grouped by user/all, sorted by least and most common 
-   
-3) Time to hit threshold for various words, words in aggregate, threshold levels, etc
-
-4) 
