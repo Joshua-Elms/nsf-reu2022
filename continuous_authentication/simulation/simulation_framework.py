@@ -65,8 +65,12 @@ def partition(data, test_digraphs):
 
     return chunk_lst
             
+def process_train(train, occurence_threshold = 3):
+    pass
 
-def main(train_digraphs, test_digraphs):
+def main(train_digraphs = 10000, test_digraphs = 1000):
+
+
     # Data import
     default_raw_path = PurePath("../../data/clarkson2_files/")
     default_timeseries_path = PurePath("../../data/user_time_series/")
@@ -80,9 +84,11 @@ def main(train_digraphs, test_digraphs):
     results_dict = {}
     # For each user, perform cross validation
     for i, user_arr in enumerate(list_of_user_arrays):
+        if i != 37:
+            break
         num_digraphs_in_file = digraphs_in_file(read_paths[i])
 
-        if num_digraphs_in_file <  train_digraphs + test_digraphs :
+        if num_digraphs_in_file <  train_digraphs + test_digraphs:
             continue 
 
         # Pull out training data
@@ -90,9 +96,10 @@ def main(train_digraphs, test_digraphs):
 
         # Add partitioned remainder to imposter_bank to allow for testing random imposters
         partitioned_remainder = partition(remainder, test_digraphs = 1000)
-        imposter_bank.append(partitioned_remainder)
-        print(len(imposter_bank))
-        print(imposter_bank[0])
+        [imposter_bank.append(sublist) for sublist in partitioned_remainder]
+
+        # Process training data into user model
+        user_profile = process_train(train, occurence_threshold = 3)
 
     pass
 
