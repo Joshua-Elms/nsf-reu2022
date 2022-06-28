@@ -1,46 +1,45 @@
 import numpy as np
 from pathlib import PurePath
 import os
-from json import load
 import sys
 sys.path.append("../../")
 
 from continuous_authentication.feature_extraction.parse_utils import *
 
-# def read_in_data(path_lst: list) -> tuple:
-#     all_users_raw_nested_tuples = [file_to_nested_tuples(path) for path in path_lst]
-#     all_users_clean_nested_tuples = [clean_text(dirty) for dirty in all_users_raw_nested_tuples]
-#     get_actual_keystrokes = lambda indices, keystrokes: [keystrokes[i] if i >= 0  else (None, None, "-") for i in indices]
-#     cleaned_keystrokes = [get_actual_keystrokes(all_users_clean_nested_tuples[i], all_users_raw_nested_tuples[i]) for i in range(len(all_users_raw_nested_tuples))]
-
-#     return cleaned_keystrokes
-
-def read_in_data(path_lst: list) -> tuple:
-
-    pass
-
-def determine_folds(user_arr: np.ndarray, k_folds: int = 5, p_left_out: int = 2) -> tuple:
+def get_train(user_arr: np.ndarray, test_digraphs: int) -> tuple:
     rng = np.random.default_rng()
-    
+    eof = len(user_arr) 
+    # determine the upper bound for where to start recording digraphs
+    stop_pos = 0
+    digraph_cnt = 0
+    for i, val in reversed(list(enumerate(user_arr))):
+        digraphs = int(val[2])
+        if digraph_cnt + digraphs <= test_digraphs: 
+            digraph_cnt += digraphs
 
-    return #folds
+        else: 
+            stop_pos = i
+            break
 
-def main():
+    random_start_position = rng.choice(np.arange(stop_pos))
+    print(f"With {eof} words, start was selected at {random_start_position}")
+
+    return random_start_position
+
+def main(dd):
     # Data import
     default_raw_path = PurePath("../../data/clarkson2_files/")
     default_timeseries_path = PurePath("../../data/user_time_series/")
     user_list = [user for user in os.listdir(default_raw_path) if user != ".DS_Store"]
-    path = lambda user: PurePath(default_timeseries_path, PurePath(str(user)))
-    read_paths = [path(user) for user in user_list[:3]]
+    path = lambda user: PurePath(default_timeseries_path, PurePath(f"user_{user}.csv"))
+    read_paths = [path(user) for user in user_list]
 
-    list_of_user_arrays = read_in_data(read_paths)
+    list_of_user_arrays = [np.genfromtxt(path, dtype = np.dtype(object), delimiter = "\t") for path in read_paths]
 
     # For each user, perform cross validation
     for i, user_arr in enumerate(list_of_user_arrays):
-        print(f"Successfully did fuck all for user: {i}")
-        # Determine splits
-        folds = determine_folds(user_arr)
-        print(folds)
+        # Pull out training data
+        train, remainder = get_train(user_arr, test_digraphs = dd), None
 
         # Generate arrays
         # arrays_by_folds = [user_arr[fold] for fold in folds]
@@ -51,4 +50,4 @@ def main():
     pass
 
 if __name__ == "__main__":
-    main()
+    main(dd = 100)
