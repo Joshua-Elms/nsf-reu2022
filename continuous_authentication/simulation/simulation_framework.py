@@ -49,6 +49,23 @@ def digraphs_in_file(file):
 
     return sum_of_digraphs
 
+def partition(data, test_digraphs):
+    chunk_lst = []
+    digraph_cnt = 0
+    previous_lim = 0
+    for i, val in enumerate(data):
+        digraphs = int(val[2])
+        if digraph_cnt + digraphs <= test_digraphs:
+            digraph_cnt += digraphs
+
+        else: 
+            chunk_lst.append(data[previous_lim : i])
+            previous_lim = i
+            digraph_cnt = 0
+
+    return chunk_lst
+            
+
 def main(train_digraphs, test_digraphs):
     # Data import
     default_raw_path = PurePath("../../data/clarkson2_files/")
@@ -59,6 +76,7 @@ def main(train_digraphs, test_digraphs):
 
     list_of_user_arrays = [np.genfromtxt(path, dtype = np.dtype(object), delimiter = "\t") for path in read_paths]
 
+    imposter_bank = []
     results_dict = {}
     # For each user, perform cross validation
     for i, user_arr in enumerate(list_of_user_arrays):
@@ -68,10 +86,13 @@ def main(train_digraphs, test_digraphs):
             continue 
 
         # Pull out training data
-        train, test, _ = train_test_remainder(user_arr, train_digraphs = 10000, test_digraphs = 1000)
+        train, test, remainder = train_test_remainder(user_arr, train_digraphs = 10000, test_digraphs = 1000)
 
-        # 
-
+        # Add partitioned remainder to imposter_bank to allow for testing random imposters
+        partitioned_remainder = partition(remainder, test_digraphs = 1000)
+        imposter_bank.append(partitioned_remainder)
+        print(len(imposter_bank))
+        print(imposter_bank[0])
 
     pass
 
