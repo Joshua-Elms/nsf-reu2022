@@ -2,7 +2,6 @@ from pathlib import PurePath
 import os
 import json
 from time import perf_counter as pfc
-
 import sys
 sys.path.append("../../")
 
@@ -10,7 +9,7 @@ from parse_utils import *
 
 def write_batch_to_json():
     c2_path = PurePath("../../data/clarkson2_files")
-    user_profile_folder = PurePath("../../data/processed_c2_data")
+    user_profile_folder = PurePath("../../data/user_json_files/")
     files = os.listdir(c2_path)
 
     times = []
@@ -38,4 +37,4 @@ def write_batch_to_json():
 
 if __name__ == "__main__":
     time = write_batch_to_json()
-    print(f"Average parse time for all users is: {time}")
+    print(f"Average parse time for per user is: {round(time, 3)} seconds")

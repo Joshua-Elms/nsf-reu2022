@@ -3,13 +3,13 @@ import os
 from json import load
 
 def word_conditions(content):
-    word, _ = content
+    word, *_ = content
     is_word = True
     length = len(word)
     lower_incl = 2
     upper_incl = 15
     unique_letters = set(word)
-    unique_total_min_ratio = .51
+    unique_total_min_ratio = .30
 
     # word inside length limits
     if length < lower_incl or length > upper_incl:
@@ -28,10 +28,10 @@ def create_sorted_filtered_list(user_dict):
 
         for instance in timing_vectors:
             timestamp = instance[0]
-            tmp_lst.append((word, timestamp))
+            tmp_lst.append((word, timestamp, instance[1]))
 
     filtered_tmp = tuple(filter(word_conditions, tmp_lst))
-    sorted_lst = sorted(filtered_tmp, key = lambda x: (x[1], x[0]), reverse = False)
+    sorted_lst = sorted(filtered_tmp, key = lambda x: x[1], reverse = False)
 
     return sorted_lst
 
@@ -51,8 +51,8 @@ def main():
         sorted_words = create_sorted_filtered_list(user_data)
 
         with open(user_ts_path, "w") as f:
-            for word, timestamp in sorted_words:
-                f.write(f"{timestamp}   {word}\n")
+            for word, timestamp, timings in sorted_words:
+                f.write(f"{timestamp}\t{word}\t{len(word) - 1}\t{timings}\n")
 
         print(f"Finished writing to {user_ts_path}")
 
