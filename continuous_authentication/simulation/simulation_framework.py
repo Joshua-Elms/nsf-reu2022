@@ -1,3 +1,4 @@
+from cv2 import threshold
 import numpy as np
 from pathlib import PurePath
 import os
@@ -90,24 +91,29 @@ def model_wrapper(user_profile, test_sample, model, threshold):
             # if a word hits the threshold, calculate the mean of all instances of that word and assign to word_profiles
             word_profiles[word] = np.array([vector[1] for vector in contents["timing_vectors"]]).mean(axis = 0)
 
-def main(model, train_digraphs = 10000, test_digraphs = 1000, word_count_threshold = 3):
+def main(model, threshold_params, train_digraphs = 10000, test_digraphs = 1000, word_count_threshold = 3):
     np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
 
     # Data import
     default_raw_path = PurePath("../../data/clarkson2_files/")
     default_timeseries_path = PurePath("../../data/user_time_series/")
-    user_list = [user for user in os.listdir(default_raw_path) if user not in (".DS_Store", "379149")]
+    user_list = [user for user in os.listdir(default_raw_path) if user not in (".DS_Store", "379149")] # 379149 is empty
     path = lambda user: PurePath(default_timeseries_path, PurePath(f"user_{user}.csv"))
     read_paths = [path(user) for user in user_list]
     dt = np.dtype([('timestamp', np.uint32), ("text", np.unicode_, 16), ("digraphs", np.uint8), ("timing_vector", np.unicode_, 2048)])
 
     list_of_user_arrays = [np.genfromtxt(path, dtype = np.dtype(dt), delimiter = "\t") for path in read_paths]
 
+    # Initialize list of thresholds to try
+    t_start, t_stop, t_step = threshold_params
+    thresholds = [round(i, 2) for i in np.arange(t_start, t_stop, t_step)]
+
     imposter_bank = []
-    results_dict = {}
+    results_dict = {user: {threshold: {} for threshold in thresholds} for user in user_list}
     # For each user, perform cross validation
     for i, user_arr in enumerate(list_of_user_arrays):
-        if i != 37:
+        user = user_list[i]
+        if i > 5:
             continue
         num_digraphs_in_file = digraphs_in_file(read_paths[i])
 
@@ -121,15 +127,27 @@ def main(model, train_digraphs = 10000, test_digraphs = 1000, word_count_thresho
         partitioned_remainder = partition(remainder, test_digraphs = 1000)
         [imposter_bank.append(sublist) for sublist in partitioned_remainder]
 
-        # Process training data into user model
+        # Select random chunks of imposter data and process all available
         rng = np.random.default_rng()
         imposter_blocks = rng.choice(imposter_bank, 10, ).tolist() # 10 is number of imposter blocks to sample
         data = [train, test, *imposter_blocks]
         user_profile, genuine_sample, *imposter_samples = [process_train(datum) for datum in data]
 
-        # Test genuine user
-        genuine_results = model_wrapper(user_profile, test, model, word_count_threshold)
-        imposter_results = [model_wrapper(user_profile, imposter_sample, model, word_count_threshold) for imposter_sample in imposter_samples]
+        for i, threshold in enumerate(thresholds):
+            # Test against various users
+            genuine_output = model_wrapper(user_profile, test, model, word_count_threshold)
+            imposter_outputs = [model_wrapper(user_profile, imposter_sample, model, word_count_threshold) for imposter_sample in imposter_samples]
+
+            # Calculate TPR and FPR for users:
+            genuine_tpr = np.average(genuine_output)
+            imposter_fpr = np.average(imposter_outputs)
+
+            results_dict[user][threshold]["tpr"] = genuine_tpr
+            results_dict[user][threshold]["fpr"] = imposter_fpr
+
+
+
+
     pass
 
 def main_set_params():
@@ -138,6 +156,7 @@ def main_set_params():
         test_digraphs = 1000, 
         word_count_threshold = 2,
         model = Scaled_Manhattan,
+        threshold_params = [0, 10, 1]
     )
 
 if __name__ == "__main__":
