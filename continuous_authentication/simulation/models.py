@@ -42,7 +42,7 @@ def z_score(train: np.ndarray, test: np.ndarray, threshold: float) -> np.ndarray
     return pred_labels
 
 
-def Manhattan(train: np.ndarray, test: np.ndarray, threshold: float) -> np.ndarray:
+def Manhattan(train: np.ndarray, test: np.ndarray) -> np.ndarray:
     """
     Calculate arithmetic mean of train along axis 1 (model)
     Then compute pairwise distances between test entries and model
@@ -62,7 +62,7 @@ def Manhattan(train: np.ndarray, test: np.ndarray, threshold: float) -> np.ndarr
 
     return sum_diffs
 
-def Scaled_Manhattan(train: np.ndarray, test: np.ndarray, threshold: float) -> np.ndarray:
+def Scaled_Manhattan(train: np.ndarray, test: np.ndarray) -> np.ndarray:
     """
     Calculate arithmetic mean of train along axis 1 (model)
     Then compute pairwise distances between test entries and model
@@ -76,18 +76,12 @@ def Scaled_Manhattan(train: np.ndarray, test: np.ndarray, threshold: float) -> n
     Returns: vector of length = len(test)
     """
     model = np.mean(train, axis = 0)
-    # mad0 = train - model
-    # mad1 = np.absolute(mad0)
-    # mad2 = np.sum(mad1, axis = 0)
-    # mad3 = mad2 / train.shape[0]
-    # mad = mad3[np.newaxis, :]
     std = np.std(train, axis = 0)
     diffs = model[np.newaxis, :] - test
     abs_diffs = np.absolute(diffs) / std # optionally mad instead of std, but std performs marginally better
     sum_diffs = np.sum(abs_diffs, axis = 1)
-    imposter_vector = np.where(sum_diffs > threshold, 0, 1)
 
-    return imposter_vector
+    return sum_diffs
 
 
 if __name__== "__main__":

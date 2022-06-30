@@ -102,7 +102,7 @@ def model_wrapper(user_profile, test_sample, model, word_count_threshold, thresh
             # print(f"{word} occurs {user_profile[word]['occurence_count']} times in train and {test_sample[word]['occurence_count']} times in test")
             train = np.array([vector[1] for vector in user_profile[word]["timing_vectors"]]) / 1000000
             test = np.array([vector[1] for vector in test_sample[word]["timing_vectors"]]) / 1000000
-            dissimilarity = model(train, test, threshold)
+            dissimilarity = model(train, test)
             [dissimilarity_vector.append(item) for item in dissimilarity]
             empty = False
 
@@ -216,8 +216,8 @@ def main_set_params():
         train_digraphs = 10000, 
         test_digraphs = 1000, 
         word_count_threshold = 2,
-        model = Manhattan,
-        threshold_params = [0, 10, 1]
+        model = Scaled_Manhattan,
+        threshold_params = [0, 80, 2]
     )
     stop = perf_counter()
     print(f"Total execution time: {stop - start}")
