@@ -1,8 +1,9 @@
-from cv2 import threshold
 import numpy as np
 from pathlib import PurePath
 import os
 import csv
+from json import dump
+from time import perf_counter
 import sys
 sys.path.append("../../")
 
@@ -84,17 +85,18 @@ def process_train(train):
 
     return user_profile_dict
 
-def model_wrapper(user_profile, test_sample, model, threshold):
+def model_wrapper(user_profile, test_sample, model, word_count_threshold, threshold):
 
     # Take all words that occur more than threshold times as a subset of user_profile, prep for modelling
     word_profiles = set()
     for word, contents in user_profile.items():
-        if contents["occurence_count"] >= threshold:
+        if contents["occurence_count"] >= word_count_threshold:
             # if a word hits the threshold, calculate the mean of all instances of that word and assign to word_profiles
             # word_profiles[word] = np.array([vector[1] for vector in contents["timing_vectors"]]).mean(axis = 0)
             word_profiles.add(word)
 
     dissimilarity_vector = []
+    empty = True
     for word in test_sample:
         if word in word_profiles:
             # print(f"{word} occurs {user_profile[word]['occurence_count']} times in train and {test_sample[word]['occurence_count']} times in test")
@@ -102,15 +104,37 @@ def model_wrapper(user_profile, test_sample, model, threshold):
             test = np.array([vector[1] for vector in test_sample[word]["timing_vectors"]]) / 1000000
             dissimilarity = model(train, test, threshold)
             [dissimilarity_vector.append(item) for item in dissimilarity]
+            empty = False
 
-    dissimilarity_array = np.array(dissimilarity_vector)
-    decisions = np.where(dissimilarity_array > threshold, 0, 1).tolist()
+    if not empty:
+        dissimilarity_array = np.array(dissimilarity_vector)
+        decisions = np.where(dissimilarity_array > threshold, 0, 1).tolist()
+
+    else: # if no items are in both user profile and test sample, return None
+        decisions = None
 
     return decisions
 
+def mean(x):
+    try: 
+        result = sum(x) / len(x)
 
-def main(model, threshold_params, train_digraphs = 10000, test_digraphs = 1000, word_count_threshold = 3):
+    except ZeroDivisionError:
+        raise("ZeroDivisionError: Empty intersect between train and test")
+
+    return result
+
+def write_to_csv(results, path):
+    with open(path, "w") as f:
+        dump(results, f, indent = 4)
+
+    pass
+
+def main(model, threshold_params,train_digraphs = 10000, test_digraphs = 1000, word_count_threshold = 3):
     np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
+
+    # Establish write path
+    write_path = PurePath(f"../../data/simulation_results/tpr_fpr_{model.__name__}.json")
 
     # Data import
     default_raw_path = PurePath("../../data/clarkson2_files/")
@@ -127,16 +151,17 @@ def main(model, threshold_params, train_digraphs = 10000, test_digraphs = 1000, 
     thresholds = [round(i, 2) for i in np.arange(t_start, t_stop, t_step)]
 
     imposter_bank = []
-    results_dict = {user: {threshold: {} for threshold in thresholds} for user in user_list}
+    results_dict = {}
     # For each user, perform cross validation
     for i, user_arr in enumerate(list_of_user_arrays):
         user = user_list[i]
-        if i > 5:
-            continue
+
         num_digraphs_in_file = digraphs_in_file(read_paths[i])
 
         if num_digraphs_in_file <  train_digraphs + test_digraphs:
             continue 
+
+        results_dict[user] = {str(threshold): {} for threshold in thresholds}
 
         # Pull out training data
         train, test, remainder = train_test_remainder(user_arr, train_digraphs = 10000, test_digraphs = 1000)
@@ -153,21 +178,40 @@ def main(model, threshold_params, train_digraphs = 10000, test_digraphs = 1000, 
 
         for i, threshold in enumerate(thresholds):
             # Test against various users
-            genuine_output = np.array(model_wrapper(user_profile, genuine_sample, model, word_count_threshold))
-            imposter_outputs = np.array([model_wrapper(user_profile, imposter_sample, model, word_count_threshold) for imposter_sample in imposter_samples])
+            genuine_output = np.array(model_wrapper(user_profile, genuine_sample, model, word_count_threshold, threshold))
+            imposter_outputs = []
+            for imposter_sample in imposter_samples: 
+                results = model_wrapper(user_profile, imposter_sample, model, word_count_threshold, threshold)
+                if results:
+                    imposter_outputs.append(mean(results))
 
-            # Calculate TPR and FPR for users:
-            genuine_tpr = np.average(genuine_output)
+            # imposter_outputs = np.array([mean(model_wrapper(user_profile, imposter_sample, model, word_count_threshold)) for imposter_sample in imposter_samples])
+
+            # Calculate TPR and FPR for users
+            # print(genuine_output.dtype)
+            genuine_tpr = np.average(genuine_output) if genuine_output.dtype == "int64" else None
             imposter_fpr = np.average(imposter_outputs)
 
             # Add metrics to dictionary
-            results_dict[user][threshold]["tpr"] = genuine_tpr
-            results_dict[user][threshold]["fpr"] = imposter_fpr
+            print(genuine_tpr, imposter_fpr)
+            try: 
+                results_dict[user][str(threshold)]["tpr"] = float(genuine_tpr)
+            
+            except TypeError:
+                results_dict[user][str(threshold)]["tpr"] = None
+
+            try: 
+                results_dict[user][str(threshold)]["fpr"] = float(imposter_fpr)
+            
+            except TypeError:
+                results_dict[user][str(threshold)]["fpr"] = None
 
     print(results_dict)
-    pass
+    # Write results out to a csv
+    write_to_csv(results_dict, write_path)
 
 def main_set_params():
+    start = perf_counter()
     main(
         train_digraphs = 10000, 
         test_digraphs = 1000, 
@@ -175,6 +219,8 @@ def main_set_params():
         model = Manhattan,
         threshold_params = [0, 10, 1]
     )
+    stop = perf_counter()
+    print(f"Total execution time: {stop - start}")
 
 if __name__ == "__main__":
     main_set_params()
