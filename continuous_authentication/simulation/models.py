@@ -58,10 +58,9 @@ def Manhattan(train: np.ndarray, test: np.ndarray, threshold: float) -> np.ndarr
     model = np.mean(train, axis = 0)
     diffs = model[np.newaxis, :] - test
     abs_diffs = np.absolute(diffs)
-    sum_diffs = np.sum(abs_diffs, axis = 1)
-    imposter_vector = np.where(sum_diffs > threshold, 0, 1)
+    sum_diffs = np.sum(abs_diffs, axis = 1).tolist()
 
-    return imposter_vector
+    return sum_diffs
 
 def Scaled_Manhattan(train: np.ndarray, test: np.ndarray, threshold: float) -> np.ndarray:
     """

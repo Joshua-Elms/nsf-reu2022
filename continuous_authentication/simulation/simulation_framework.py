@@ -85,11 +85,29 @@ def process_train(train):
     return user_profile_dict
 
 def model_wrapper(user_profile, test_sample, model, threshold):
-    word_profiles = {}
+
+    # Take all words that occur more than threshold times as a subset of user_profile, prep for modelling
+    word_profiles = set()
     for word, contents in user_profile.items():
         if contents["occurence_count"] >= threshold:
             # if a word hits the threshold, calculate the mean of all instances of that word and assign to word_profiles
-            word_profiles[word] = np.array([vector[1] for vector in contents["timing_vectors"]]).mean(axis = 0)
+            # word_profiles[word] = np.array([vector[1] for vector in contents["timing_vectors"]]).mean(axis = 0)
+            word_profiles.add(word)
+
+    dissimilarity_vector = []
+    for word in test_sample:
+        if word in word_profiles:
+            # print(f"{word} occurs {user_profile[word]['occurence_count']} times in train and {test_sample[word]['occurence_count']} times in test")
+            train = np.array([vector[1] for vector in user_profile[word]["timing_vectors"]]) / 1000000
+            test = np.array([vector[1] for vector in test_sample[word]["timing_vectors"]]) / 1000000
+            dissimilarity = model(train, test, threshold)
+            [dissimilarity_vector.append(item) for item in dissimilarity]
+
+    dissimilarity_array = np.array(dissimilarity_vector)
+    decisions = np.where(dissimilarity_array > threshold, 0, 1).tolist()
+
+    return decisions
+
 
 def main(model, threshold_params, train_digraphs = 10000, test_digraphs = 1000, word_count_threshold = 3):
     np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
@@ -129,25 +147,24 @@ def main(model, threshold_params, train_digraphs = 10000, test_digraphs = 1000, 
 
         # Select random chunks of imposter data and process all available
         rng = np.random.default_rng()
-        imposter_blocks = rng.choice(imposter_bank, 10, ).tolist() # 10 is number of imposter blocks to sample
+        imposter_blocks = rng.choice(imposter_bank, 10).tolist() # 10 is number of imposter blocks to sample
         data = [train, test, *imposter_blocks]
         user_profile, genuine_sample, *imposter_samples = [process_train(datum) for datum in data]
 
         for i, threshold in enumerate(thresholds):
             # Test against various users
-            genuine_output = model_wrapper(user_profile, test, model, word_count_threshold)
-            imposter_outputs = [model_wrapper(user_profile, imposter_sample, model, word_count_threshold) for imposter_sample in imposter_samples]
+            genuine_output = np.array(model_wrapper(user_profile, genuine_sample, model, word_count_threshold))
+            imposter_outputs = np.array([model_wrapper(user_profile, imposter_sample, model, word_count_threshold) for imposter_sample in imposter_samples])
 
             # Calculate TPR and FPR for users:
             genuine_tpr = np.average(genuine_output)
             imposter_fpr = np.average(imposter_outputs)
 
+            # Add metrics to dictionary
             results_dict[user][threshold]["tpr"] = genuine_tpr
             results_dict[user][threshold]["fpr"] = imposter_fpr
 
-
-
-
+    print(results_dict)
     pass
 
 def main_set_params():
@@ -155,7 +172,7 @@ def main_set_params():
         train_digraphs = 10000, 
         test_digraphs = 1000, 
         word_count_threshold = 2,
-        model = Scaled_Manhattan,
+        model = Manhattan,
         threshold_params = [0, 10, 1]
     )
 
