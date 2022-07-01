@@ -214,10 +214,10 @@ def main_set_params():
     start = perf_counter()
     main(
         train_digraphs = 10000, 
-        test_digraphs = 1000, 
+        test_digraphs = 2000, 
         word_count_threshold = 2,
-        model = Scaled_Manhattan,
-        threshold_params = [0, 80, 2]
+        model = Manhattan,
+        threshold_params = [0, 50, 1]
     )
     stop = perf_counter()
     print(f"Total execution time: {stop - start}")
