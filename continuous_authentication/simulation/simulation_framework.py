@@ -101,13 +101,10 @@ def model_wrapper(user_profile, test_sample, model, word_count_threshold, thresh
     for word in test_sample:
         if word in word_profiles:
             train = np.array([vector[1] for vector in user_profile[word]["timing_vectors"]]) / 1000000
-            test_lst = []
             for instance in test_sample[word]["timing_vectors"]:
                 # maybe increment a counter here instead
-                test_lst.append(instance[1])
                 word_lengths.append(len(word))
-            
-                dissimilarity = model(train, test)
+                dissimilarity = model(train, instance[1])
                 dissimilarity_vector.append(dissimilarity)
 
 
