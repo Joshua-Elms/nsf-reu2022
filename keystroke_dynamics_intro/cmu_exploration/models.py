@@ -92,8 +92,6 @@ def Scaled_Manhattan(train: np.ndarray, test: np.ndarray, threshold: float) -> n
     return imposter_vector
 
 
-def 
-
 if __name__== "__main__":
     train = np.array([[2, 1], [1, 3]])
     test = np.array([[1, 3], [2, 1]])

@@ -1,4 +1,6 @@
+from cv2 import sqrt
 import numpy as np
+from scipy.linalg import sqrtm
 
 def Euclidean(train: np.ndarray, test: np.ndarray, threshold: float) -> np.ndarray:
     """
@@ -22,7 +24,6 @@ def Euclidean(train: np.ndarray, test: np.ndarray, threshold: float) -> np.ndarr
 
     return imposter_vector
 
-
 def z_score(train: np.ndarray, test: np.ndarray, threshold: float) -> np.ndarray:
     '''
     compare the zscore to 1.69
@@ -40,7 +41,6 @@ def z_score(train: np.ndarray, test: np.ndarray, threshold: float) -> np.ndarray
     pred_labels = np.where(ratio<thresh2, 0, 1)
 
     return pred_labels
-
 
 def Manhattan(train: np.ndarray, test: np.ndarray) -> np.ndarray:
     """
@@ -83,9 +83,27 @@ def Scaled_Manhattan(train: np.ndarray, test: np.ndarray) -> np.ndarray:
 
     return sum_diffs
 
+def Zhong_Deng(train: np.ndarray, test: np.ndarray) -> np.ndarray:
+    S_inv_sqrt = np.linalg.inv(sqrtm(np.cov(train, rowvar = False))) 
+    diffs = train - test
+    trans_diffs = S_inv_sqrt * diffs
+    abs_diffs = np.absolute(trans_diffs.real)
+    total = np.sum(abs_diffs)
+
+    # sqrt_x_cov = sqrtm(x_cov)
+    # x_cov_atmpt = sqrt_x_cov @ sqrt_x_cov
+    # inv_x_sqrt = np.linalg.inv(sqrt_x_cov)
+
+    # print(f"Covariance Matrix: \n{x_cov}")
+    # print(f"\n\Real Square Root of Cov. Matrix: \n{sqrt_x_cov}")
+    # print(f"\n\nAttempted Covariance Matrix: \n{x_cov_atmpt.real}\n")
+    # print(f"\n\nInverse of Principal SQRT of Cov. Matrix: \n{inv_x_sqrt}")
+
+    # inv_x_sqrt = np.linalg.inv(sqrt_x_cov)
+
+    return total
 
 if __name__== "__main__":
-    train = np.array([[2, 1], [1, 3]])
-    test = np.array([[1, 3], [2, 1]])
-    thresh = 2
-    print(Scaled_Manhattan(train, test, thresh))
+    train = np.array([2, 1, 2])
+    test = np.array([2, 1, 34])
+    print(Zhong_Deng(train, test))
