@@ -63,6 +63,7 @@ def Manhattan(train: np.ndarray, test: np.ndarray, threshold: float) -> np.ndarr
 
     return imposter_vector
 
+
 def Scaled_Manhattan(train: np.ndarray, test: np.ndarray, threshold: float) -> np.ndarray:
     """
     Calculate arithmetic mean of train along axis 1 (model)
@@ -90,6 +91,8 @@ def Scaled_Manhattan(train: np.ndarray, test: np.ndarray, threshold: float) -> n
 
     return imposter_vector
 
+
+def 
 
 if __name__== "__main__":
     train = np.array([[2, 1], [1, 3]])
