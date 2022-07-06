@@ -77,7 +77,7 @@ def Scaled_Manhattan(train: np.ndarray, test: np.ndarray) -> np.ndarray:
     """
     model = np.mean(train, axis = 0)
     std = np.std(train, axis = 0)
-    diffs = model[np.newaxis, :] - test
+    diffs = model - test
     abs_diffs = np.absolute(diffs) / std # optionally mad instead of std, but std performs marginally better
     sum_diffs = np.sum(abs_diffs, axis = 1)
 
