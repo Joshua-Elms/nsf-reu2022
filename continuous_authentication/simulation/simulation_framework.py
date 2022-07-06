@@ -1,3 +1,4 @@
+from multiprocessing.spawn import import_main_path
 import numpy as np
 from pathlib import PurePath
 import os
@@ -96,24 +97,28 @@ def model_wrapper(user_profile, test_sample, model, word_count_threshold, thresh
             word_profiles.add(word)
 
     dissimilarity_vector = []
-    empty = True
+    word_lengths = []
     for word in test_sample:
         if word in word_profiles:
-            # print(f"{word} occurs {user_profile[word]['occurence_count']} times in train and {test_sample[word]['occurence_count']} times in test")
             train = np.array([vector[1] for vector in user_profile[word]["timing_vectors"]]) / 1000000
-            test = np.array([vector[1] for vector in test_sample[word]["timing_vectors"]]) / 1000000
-            dissimilarity = model(train, test)
-            [dissimilarity_vector.append(item) for item in dissimilarity]
-            empty = False
+            test_lst = []
+            for instance in test_sample[word]["timing_vectors"]:
+                # maybe increment a counter here instead
+                test_lst.append(instance[1])
+                word_lengths.append(len(word))
+            
+                dissimilarity = model(train, test)
+                dissimilarity_vector.append(dissimilarity)
 
-    if not empty:
+
+    if dissimilarity_vector:
         dissimilarity_array = np.array(dissimilarity_vector)
         decisions = np.where(dissimilarity_array > threshold, 0, 1).tolist()
 
     else: # if no items are in both user profile and test sample, return None
         decisions = None
 
-    return decisions
+    return decisions, word_lengths
 
 def mean(x):
     try: 
@@ -178,14 +183,15 @@ def main(model, threshold_params,train_digraphs = 10000, test_digraphs = 1000, w
 
         for i, threshold in enumerate(thresholds):
             # Test against various users
-            genuine_output = np.array(model_wrapper(user_profile, genuine_sample, model, word_count_threshold, threshold))
+            genuine_output, word_lengths = model_wrapper(user_profile, genuine_sample, model, word_count_threshold, threshold)
             imposter_outputs = []
+            imposter_word_lengths = []
             for imposter_sample in imposter_samples: 
-                results = model_wrapper(user_profile, imposter_sample, model, word_count_threshold, threshold)
+                results, word_lengths = model_wrapper(user_profile, imposter_sample, model, word_count_threshold, threshold)
                 if results:
                     imposter_outputs.append(mean(results))
+                    [imposter_word_lengths.append(item) for item in word_lengths]
 
-            # imposter_outputs = np.array([mean(model_wrapper(user_profile, imposter_sample, model, word_count_threshold)) for imposter_sample in imposter_samples])
 
             # Calculate TPR and FPR for users
             # print(genuine_output.dtype)
