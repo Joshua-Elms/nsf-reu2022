@@ -95,18 +95,21 @@ def model_wrapper(user_profile, test_sample, model, word_count_threshold, thresh
             # if a word hits the threshold, calculate the mean of all instances of that word and assign to word_profiles
             # word_profiles[word] = np.array([vector[1] for vector in contents["timing_vectors"]]).mean(axis = 0)
             word_profiles.add(word)
-
+    counter = 0
     dissimilarity_vector = []
     word_lengths = []
     for word in test_sample:
         if word in word_profiles:
             train = np.array([vector[1] for vector in user_profile[word]["timing_vectors"]]) / 1000000
+            counter +=1
             for instance in test_sample[word]["timing_vectors"]:
                 # maybe increment a counter here instead
+                
                 word_lengths.append(len(word))
                 dissimilarity = model(train, instance[1])
                 dissimilarity_vector.append(dissimilarity)
-
+    with open(f"word_occurences.csv", 'w', encoding = "utf-8") as f:
+        f.write(f"there are {counter} similar words in this test\n")
 
     if dissimilarity_vector:
         dissimilarity_array = np.array(dissimilarity_vector) / 1000000
@@ -196,7 +199,7 @@ def main(model, threshold_params,train_digraphs = 10000, test_digraphs = 1000, w
             imposter_fpr = np.average(imposter_outputs)
 
             # Add metrics to dictionary
-            print(genuine_tpr, imposter_fpr)
+            #print(genuine_tpr, imposter_fpr)
             try: 
                 results_dict[user][str(threshold)]["tpr"] = float(genuine_tpr)
             
