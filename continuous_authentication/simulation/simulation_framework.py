@@ -104,7 +104,7 @@ def model_wrapper(user_profile, test_sample, model, word_count_threshold, thresh
             for instance in test_sample[word]["timing_vectors"]:
                 # maybe increment a counter here instead
                 word_lengths.append(len(word))
-                dissimilarity = model(train, instance[1])
+                dissimilarity = model(train, instance[1])[0]
                 dissimilarity_vector.append(dissimilarity)
 
 
@@ -113,7 +113,7 @@ def model_wrapper(user_profile, test_sample, model, word_count_threshold, thresh
         decisions = np.where(dissimilarity_array > threshold, 0, 1).tolist()
 
     else: # if no items are in both user profile and test sample, return None
-        decisions = None
+        decisions = 0
 
     return decisions, word_lengths
 
@@ -192,7 +192,7 @@ def main(model, threshold_params,train_digraphs = 10000, test_digraphs = 1000, w
 
             # Calculate TPR and FPR for users
             # print(genuine_output.dtype)
-            genuine_tpr = np.average(genuine_output) if genuine_output.dtype == "int64" else None
+            genuine_tpr = np.average(genuine_output)# if genuine_output.dtype == "int64" else None
             imposter_fpr = np.average(imposter_outputs)
 
             # Add metrics to dictionary
@@ -217,10 +217,10 @@ def main_set_params():
     start = perf_counter()
     main(
         train_digraphs = 10000, 
-        test_digraphs = 2000, 
+        test_digraphs = 1000, 
         word_count_threshold = 2,
         model = Manhattan,
-        threshold_params = [0, 50, 1]
+        threshold_params = [0, 60, 10]
     )
     stop = perf_counter()
     print(f"Total execution time: {stop - start}")
