@@ -104,7 +104,7 @@ def model_wrapper(user_profile, test_sample, model, word_count_threshold, thresh
             counter +=1
             for instance in test_sample[word]["timing_vectors"]:
                 # maybe increment a counter here instead
-                
+                # counter +=1
                 word_lengths.append(len(word))
                 dissimilarity = model(train, instance[1])[0]
                 dissimilarity_vector.append(dissimilarity)
