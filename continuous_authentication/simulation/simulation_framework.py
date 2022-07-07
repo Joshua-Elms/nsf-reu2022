@@ -86,7 +86,7 @@ def process_train(train):
 
     return user_profile_dict
 
-def model_wrapper(user_profile, test_sample, model, word_count_threshold, threshold):
+def model_wrapper(user_profile, test_sample, model, word_count_threshold, threshold, iter):
 
     # Take all words that occur more than threshold times as a subset of user_profile, prep for modelling
     word_profiles = set()
@@ -108,8 +108,10 @@ def model_wrapper(user_profile, test_sample, model, word_count_threshold, thresh
                 word_lengths.append(len(word))
                 dissimilarity = model(train, instance[1])[0]
                 dissimilarity_vector.append(dissimilarity)
-    with open(f"word_occurences.csv", 'w', encoding = "utf-8") as f:
-        f.write(f"there are {counter} similar words in this test\n")
+
+    if iter == 0:
+        with open(f"word_occurences.csv", 'a', encoding = "utf-8") as f:
+            f.write(f"{counter}\n")
 
     if dissimilarity_vector:
         dissimilarity_array = np.array(dissimilarity_vector) / 1000000
@@ -187,7 +189,7 @@ def main(model, threshold_params,train_digraphs = 10000, test_digraphs = 1000, w
             imposter_outputs = []
             imposter_word_lengths = []
             for imposter_sample in imposter_samples: 
-                results, word_lengths = model_wrapper(user_profile, imposter_sample, model, word_count_threshold, threshold)
+                results, word_lengths = model_wrapper(user_profile, imposter_sample, model, word_count_threshold, threshold, iter = i)
                 if results:
                     imposter_outputs.append(mean(results))
                     [imposter_word_lengths.append(item) for item in word_lengths]
@@ -223,7 +225,7 @@ def main_set_params():
         test_digraphs = 1000, 
         word_count_threshold = 2,
         model = Manhattan,
-        threshold_params = [0, 60, 10]
+        threshold_params = [0, 60, 5]
     )
     stop = perf_counter()
     print(f"Total execution time: {stop - start}")
