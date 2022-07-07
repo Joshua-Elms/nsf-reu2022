@@ -109,7 +109,7 @@ def model_wrapper(user_profile, test_sample, model, word_count_threshold, thresh
 
 
     if dissimilarity_vector:
-        dissimilarity_array = np.array(dissimilarity_vector)
+        dissimilarity_array = np.array(dissimilarity_vector) / 1000000
         decisions = np.where(dissimilarity_array > threshold, 0, 1).tolist()
 
     else: # if no items are in both user profile and test sample, return None
