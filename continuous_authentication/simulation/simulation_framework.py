@@ -86,7 +86,7 @@ def process_train(train):
 
     return user_profile_dict
 
-def model_wrapper(user_profile, test_sample, model, word_count_threshold, threshold, iter):
+def model_wrapper(user_profile, test_sample, model, word_count_threshold, threshold, iter, genuine):
 
     # Take all words that occur more than threshold times as a subset of user_profile, prep for modelling
     word_profiles = set()
@@ -111,7 +111,7 @@ def model_wrapper(user_profile, test_sample, model, word_count_threshold, thresh
 
     if iter == 0:
         with open(f"word_occurences.csv", 'a', encoding = "utf-8") as f:
-            f.write(f"{counter}\n")
+                f.write(f"{'-' if genuine else ''}{counter}\n")
 
     if dissimilarity_vector:
         dissimilarity_array = np.array(dissimilarity_vector) / 1000000
@@ -185,15 +185,14 @@ def main(model, threshold_params,train_digraphs = 10000, test_digraphs = 1000, w
 
         for i, threshold in enumerate(thresholds):
             # Test against various users
-            genuine_output, word_lengths = model_wrapper(user_profile, genuine_sample, model, word_count_threshold, threshold)
+            genuine_output, word_lengths = model_wrapper(user_profile, genuine_sample, model, word_count_threshold, threshold, iter = i, genuine = True)
             imposter_outputs = []
             imposter_word_lengths = []
             for imposter_sample in imposter_samples: 
-                results, word_lengths = model_wrapper(user_profile, imposter_sample, model, word_count_threshold, threshold, iter = i)
+                results, word_lengths = model_wrapper(user_profile, imposter_sample, model, word_count_threshold, threshold, iter = i, genuine = False)
                 if results:
                     imposter_outputs.append(mean(results))
                     [imposter_word_lengths.append(item) for item in word_lengths]
-
 
             # Calculate TPR and FPR for users
             # print(genuine_output.dtype)
