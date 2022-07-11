@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Callable
 import numpy as np
 from pathlib import PurePath
 import os
@@ -10,38 +10,6 @@ sys.path.append(os.getcwd())
 from continuous_authentication.feature_extraction.parse_utils import *
 from continuous_authentication.simulation.models import *
 
-def train_test_remainder(user_arr: np.ndarray, train_digraphs: int, test_digraphs: int) -> tuple:
-    eof = len(user_arr) 
-
-    train_limit = 0
-    digraph_cnt = 0
-    for i, val in enumerate(user_arr):
-        digraphs = int(val[2])
-        if digraph_cnt + digraphs <= test_digraphs:
-            digraph_cnt += digraphs
-
-        else: 
-            train_limit = i
-            digraph_cnt = 0
-            break
-
-    test_limit = 0
-    for i, val in enumerate(user_arr):
-        if i > train_limit:
-            digraphs = int(val[2])
-            if digraph_cnt + digraphs <= test_digraphs:
-                digraph_cnt += digraphs
-
-            else: 
-                test_limit = i
-                break
-
-    train = user_arr[ : train_limit]
-    test = user_arr[train_limit : test_limit]
-    remainder = user_arr[test_limit : ]
-
-    return train, test, remainder
-  
 def process_train(train):
     user_profile_dict = {}
     for word in train:
@@ -110,47 +78,66 @@ def write_to_csv(results, path):
     with open(path, "w") as f:
         dump(results, f, indent = 4)
 
-    pass
+def get_iter(counter_folder):
+    iter_num_path = PurePath(counter_folder, PurePath("iter_num.txt"))
+    with open(iter_num_path, "r") as f_r:
+        iter_str = f_r.readline().strip()
 
-def main(model, threshold_params,train_digraphs = 10000, test_digraphs = 1000, word_count_threshold = 3):
-    pass
+        try: 
+            iter = int(iter_str)
 
-# def main_set_params():
-#     start = perf_counter()
-#     main(
-#         train_digraphs = 10000, 
-#         test_digraphs = 1000, 
-#         word_count_threshold = 2,
-#         model = Manhattan,
-#         threshold_params = [0, 60, 5]
-#     )
-#     stop = perf_counter()
-#     print(f"Total execution time: {stop - start}")
+        except ValueError:
+            iter = None
+            print(f"No valid iteration counter detected, file: {iter_num_path} added and set to 1")
+
+        if isinstance(iter, int):
+            next_iter = iter + 1
+        
+        else:
+            next_iter = 1
+
+    with open(iter_num_path, "w") as f_w:
+        f_w.write(str(next_iter))
+        
+    return iter        
 
 def simulation(
     input_folder: PurePath,
+    output_folder: PurePath,
     distance_threshold_params: dict,
     occurence_threshold: int, 
     instance_threshold: int,
-    distance_metric: function,
+    distance_metric: Callable,
     train_word_count: int,
     test_word_count: int,
+    decisions: int
 ):
+    # Initialize list of thresholds to run model with
+
+    # Get run number
+    iteration = get_iter(output_folder)
+
+    print(iteration)
+
     # Read in each user's time series stream of typed words
 
     # Remove all time series' with fewer than train_word_count + test_word_count words
 
     # 
 
+    pass
+
 def single_main():
     results = simulation(
         input_folder = PurePath("data/user_time_series/"),
+        output_folder = PurePath("continuous_authentication/simulation/results/"),
         distance_threshold_params = {"start": 0, "stop": 10, "step": 3},
         occurence_threshold = 3, 
         instance_threshold = 5,
         distance_metric = Manhattan,
         train_word_count = 1000,
-        test_word_count = 50
+        test_word_count = 50,
+        decisions = 5
     )
 
 if __name__ == "__main__":
