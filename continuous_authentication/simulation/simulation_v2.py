@@ -1,3 +1,4 @@
+from typing import Iterable
 import numpy as np
 from pathlib import PurePath
 import os
@@ -5,8 +6,7 @@ import csv
 from json import dump
 from time import perf_counter
 import sys
-sys.path.append("../../")
-
+sys.path.append(os.getcwd())
 from continuous_authentication.feature_extraction.parse_utils import *
 from continuous_authentication.simulation.models import *
 
@@ -41,32 +41,7 @@ def train_test_remainder(user_arr: np.ndarray, train_digraphs: int, test_digraph
     remainder = user_arr[test_limit : ]
 
     return train, test, remainder
-
-def partition(data, test_digraphs):
-    chunk_lst = []
-    digraph_cnt = 0
-    previous_lim = 0
-    for i, val in enumerate(data):
-        digraphs = int(val[2])
-        if digraph_cnt + digraphs <= test_digraphs:
-            digraph_cnt += digraphs
-
-        else: 
-            chunk_lst.append(data[previous_lim : i])
-            previous_lim = i
-            digraph_cnt = 0
-
-    return chunk_lst
-
-def digraphs_in_file(file):
-    input_file = open(file,"r+")
-    reader_file = csv.reader(input_file, delimiter = "\t")
-    csv_ = list(reader_file)
-    all_digraphs = [int(csv_[i][2]) for i in range(len(csv_))]
-    sum_of_digraphs = sum(all_digraphs)
-
-    return sum_of_digraphs
-         
+  
 def process_train(train):
     user_profile_dict = {}
     for word in train:
@@ -138,96 +113,46 @@ def write_to_csv(results, path):
     pass
 
 def main(model, threshold_params,train_digraphs = 10000, test_digraphs = 1000, word_count_threshold = 3):
-    np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning)
+    pass
 
-    # Establish write path
-    write_path = PurePath(f"../../data/simulation_results/tpr_fpr_{model.__name__}.json")
+# def main_set_params():
+#     start = perf_counter()
+#     main(
+#         train_digraphs = 10000, 
+#         test_digraphs = 1000, 
+#         word_count_threshold = 2,
+#         model = Manhattan,
+#         threshold_params = [0, 60, 5]
+#     )
+#     stop = perf_counter()
+#     print(f"Total execution time: {stop - start}")
 
-    # Data import
-    default_raw_path = PurePath("../../data/clarkson2_files/")
-    default_timeseries_path = PurePath("../../data/user_time_series/")
-    user_list = [user for user in os.listdir(default_raw_path) if user not in (".DS_Store", "379149")] # 379149 is empty
-    path = lambda user: PurePath(default_timeseries_path, PurePath(f"user_{user}.csv"))
-    read_paths = [path(user) for user in user_list]
-    dt = np.dtype([('timestamp', np.uint32), ("text", np.unicode_, 16), ("digraphs", np.uint8), ("timing_vector", np.unicode_, 2048)])
+def simulation(
+    input_folder: PurePath,
+    distance_threshold_params: dict,
+    occurence_threshold: int, 
+    instance_threshold: int,
+    distance_metric: function,
+    train_word_count: int,
+    test_word_count: int,
+):
+    # Read in each user's time series stream of typed words
 
-    list_of_user_arrays = [np.genfromtxt(path, dtype = np.dtype(dt), delimiter = "\t") for path in read_paths]
+    # Remove all time series' with fewer than train_word_count + test_word_count words
 
-    # Initialize list of thresholds to try
-    t_start, t_stop, t_step = threshold_params
-    thresholds = [round(i, 2) for i in np.arange(t_start, t_stop, t_step)]
+    # 
 
-    imposter_bank = []
-    results_dict = {}
-    # For each user, perform cross validation
-    for i, user_arr in enumerate(list_of_user_arrays):
-        user = user_list[i]
-
-        num_digraphs_in_file = digraphs_in_file(read_paths[i])
-
-        if num_digraphs_in_file <  train_digraphs + test_digraphs:
-            continue 
-
-        results_dict[user] = {str(threshold): {} for threshold in thresholds}
-
-        # Pull out training data
-        train, test, remainder = train_test_remainder(user_arr, train_digraphs = 10000, test_digraphs = 1000)
-
-        # Add partitioned remainder to imposter_bank to allow for testing random imposters
-        partitioned_remainder = partition(remainder, test_digraphs = 1000)
-        [imposter_bank.append(sublist) for sublist in partitioned_remainder]
-
-        # Select random chunks of imposter data and process all available
-        rng = np.random.default_rng()
-        imposter_blocks = rng.choice(imposter_bank, 10).tolist() # 10 is number of imposter blocks to sample
-        data = [train, test, *imposter_blocks]
-        user_profile, genuine_sample, *imposter_samples = [process_train(datum) for datum in data]
-
-        for i, threshold in enumerate(thresholds):
-            # Test against various users
-            genuine_output, word_lengths = model_wrapper(user_profile, genuine_sample, model, word_count_threshold, threshold, iter = i, genuine = True)
-            imposter_outputs = []
-            imposter_word_lengths = []
-            for imposter_sample in imposter_samples: 
-                results, word_lengths = model_wrapper(user_profile, imposter_sample, model, word_count_threshold, threshold, iter = i, genuine = False)
-                if results:
-                    imposter_outputs.append(mean(results))
-                    [imposter_word_lengths.append(item) for item in word_lengths]
-
-            # Calculate TPR and FPR for users
-            # print(genuine_output.dtype)
-            genuine_tpr = np.average(genuine_output)# if genuine_output.dtype == "int64" else None
-            imposter_fpr = np.average(imposter_outputs)
-
-            # Add metrics to dictionary
-            #print(genuine_tpr, imposter_fpr)
-            try: 
-                results_dict[user][str(threshold)]["tpr"] = float(genuine_tpr)
-            
-            except TypeError:
-                results_dict[user][str(threshold)]["tpr"] = None
-
-            try: 
-                results_dict[user][str(threshold)]["fpr"] = float(imposter_fpr)
-            
-            except TypeError:
-                results_dict[user][str(threshold)]["fpr"] = None
-
-    print(results_dict)
-    # Write results out to a csv
-    write_to_csv(results_dict, write_path)
-
-def main_set_params():
-    start = perf_counter()
-    main(
-        train_digraphs = 10000, 
-        test_digraphs = 1000, 
-        word_count_threshold = 2,
-        model = Manhattan,
-        threshold_params = [0, 60, 5]
+def single_main():
+    results = simulation(
+        input_folder = PurePath("data/user_time_series/"),
+        distance_threshold_params = {"start": 0, "stop": 10, "step": 3},
+        occurence_threshold = 3, 
+        instance_threshold = 5,
+        distance_metric = Manhattan,
+        train_word_count = 1000,
+        test_word_count = 50
     )
-    stop = perf_counter()
-    print(f"Total execution time: {stop - start}")
 
 if __name__ == "__main__":
-    main_set_params()
+    # main_set_params()
+    single_main()
