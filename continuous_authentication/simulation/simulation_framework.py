@@ -1,4 +1,3 @@
-from multiprocessing.spawn import import_main_path
 import numpy as np
 from pathlib import PurePath
 import os
@@ -101,17 +100,18 @@ def model_wrapper(user_profile, test_sample, model, word_count_threshold, thresh
     for word in test_sample:
         if word in word_profiles:
             train = np.array([vector[1] for vector in user_profile[word]["timing_vectors"]]) / 1000000
-            counter +=1
+            # counter +=1
             for instance in test_sample[word]["timing_vectors"]:
                 # maybe increment a counter here instead
-                
+                counter +=1
                 word_lengths.append(len(word))
                 dissimilarity = model(train, instance[1])[0]
                 dissimilarity_vector.append(dissimilarity)
 
-    if iter == 0:
-        with open(f"word_occurences.csv", 'a', encoding = "utf-8") as f:
-                f.write(f"{'-' if genuine else ''}{counter}\n")
+    ## Logging
+    # if iter == 0:
+    #     with open(f"word_occurences.csv", 'a', encoding = "utf-8") as f:
+    #             f.write(f"{'-' if genuine else ''}{counter}\n")
 
     if dissimilarity_vector:
         dissimilarity_array = np.array(dissimilarity_vector) / 1000000
