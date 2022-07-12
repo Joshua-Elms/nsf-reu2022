@@ -1,10 +1,8 @@
+from multiprocessing.sharedctypes import Value
 from typing import Callable
 import numpy as np
 from pathlib import PurePath
 import os
-from copy import deepcopy
-import csv
-from json import dump
 from time import perf_counter
 import sys
 sys.path.append(os.getcwd())
@@ -82,7 +80,42 @@ def process_train(train):
 
     return user_profile_dict
 
-def 
+def get_words_for_decision(
+    profile, 
+    test, 
+    o_threshold, 
+    i_threshold, 
+    start
+    ):
+    # Filter out any words in profile w/ fewer than o_threshold occurences
+    valid_profile = {word: content for word, content in profile.items() if content["occurence_count"] >= o_threshold}
+
+    # iterate through test data from designated start to finish until instance counter reaches threshold
+    instance_cnt = 0
+    shared_words = []
+    furthest_idx_pos_reached = 0
+    for i in range(start, len(test)):
+
+        # End loop if instance counter hits i_threshold
+        if instance_cnt == i_threshold:
+            furthest_idx_pos_reached = i
+            break
+
+        # Parse line into components
+        timestamp, word, digraph_cnt, ngraph_str = test[i]
+        ngraph_vector = [int(ngraph) for ngraph in ngraph_str.lstrip("[").rstrip("]").split(", ")]
+
+        # Compares instances, not unique words
+        if word in valid_profile:
+            instance_cnt += 1
+
+
+        # Populate shared_word list with tuples containing the word string and timing vector (lst)
+        shared_words.append((word, ngraph_vector))
+
+    print(f"Decision timestamp: {timestamp}")
+
+    return shared_words, timestamp, furthest_idx_pos_reached
 
 def simulation(
     input_folder: PurePath,
@@ -95,7 +128,8 @@ def simulation(
     num_imposters: int, 
     imposter_decisions: int,
     genuine_decisions: int, 
-    word_count_scale_factor: int
+    word_count_scale_factor: int,
+    user_cnt: int
 ):
     # Mask warning from reading empty file
     np.seterr(all="ignore")
@@ -112,13 +146,21 @@ def simulation(
     # Remove all time series' with fewer than minimum words
     minimum_words = train_word_count + (genuine_decisions * instance_threshold * word_count_scale_factor)
     valid_arrays = [arr for arr in all_user_timeseries if get_array_length(arr) >= minimum_words]
-    num_users = len(valid_arrays)
+    del all_user_timeseries
+
+    try:
+        desired_arrays = valid_arrays[:user_cnt]
+        num_users = len(valid_arrays)
+        del valid_arrays
+
+    except IndexError:
+        raise(ValueError(f"Only {len(valid_arrays)} users present, you passed user_cnt = {user_cnt}"))
 
 
     # Split each array into train and test
     train_arrays = []
     test_arrays = []
-    for array in valid_arrays:
+    for array in desired_arrays:
         train_arrays.append(array[:train_word_count])
         test_arrays.append(array[train_word_count:])
 
@@ -137,7 +179,15 @@ def simulation(
         imposter_arrays = test_arrays[:idx] + test_arrays[idx+1:]
 
         # Compare genuine array to user_profile until specified # of decisions made
-        
+        for decision_num in range(genuine_decisions):
+            if decision_num == 0:
+                last_idx_pos = 0
+            words_for_decision, decision_timestamp, last_idx_pos = get_words_for_decision(profile = user_profile, 
+                                                        test = genuine_array, 
+                                                        o_threshold = occurence_threshold, 
+                                                        i_threshold = instance_threshold,
+                                                        start = last_idx_pos)
+
         # Compare imposter arrays to user_profile until specified # of decisions made per
         
 
@@ -153,8 +203,9 @@ def single_main():
         train_word_count = 1000,
         num_imposters = 10,
         imposter_decisions = 2,
-        genuine_decisions = 20,
-        word_count_scale_factor = 50
+        genuine_decisions = 1,
+        word_count_scale_factor = 50,
+        user_cnt = -1
     )
 
 if __name__ == "__main__":
