@@ -84,12 +84,11 @@ def simulation(
     # Read in each user's time series stream of typed words
     all_user_timeseries = read_data(input_folder)
 
-    # Remove all time series' with fewer than train_word_count + test_word_count words
-    minimum_words = train_word_count + 
-
+    # Remove all time series' with fewer than minimum words
+    minimum_words = train_word_count + (genuine_decisions * instance_threshold)
     valid_arrays = [arr for arr in all_user_timeseries if get_array_length(arr) >= minimum_words]
 
-    print(valid_arrays)
+    print(len(valid_arrays))
 
     # 
 
