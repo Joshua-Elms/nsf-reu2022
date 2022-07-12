@@ -2,6 +2,7 @@ from typing import Callable
 import numpy as np
 from pathlib import PurePath
 import os
+from copy import deepcopy
 import csv
 from json import dump
 from time import perf_counter
@@ -63,6 +64,26 @@ def get_array_length(array):
 
     return length
 
+def process_train(train):
+    user_profile_dict = {}
+    for word in train:
+        time, text, digraph_cnt, ngraph_str = word
+        ngraph_vector = [int(ngraph) for ngraph in ngraph_str.lstrip("[").rstrip("]").split(", ")]
+
+        if text in user_profile_dict:
+            user_profile_dict[text]["occurence_count"] += 1
+            user_profile_dict[text]["timing_vectors"].append([time, ngraph_vector])
+        
+        else:
+            user_profile_dict[text] = {
+                "occurence_count": 1,
+                "timing_vectors": [[time, ngraph_vector]]
+            }
+
+    return user_profile_dict
+
+def 
+
 def simulation(
     input_folder: PurePath,
     output_folder: PurePath,
@@ -73,26 +94,53 @@ def simulation(
     train_word_count: int,
     num_imposters: int, 
     imposter_decisions: int,
-    genuine_decisions: int
+    genuine_decisions: int, 
+    word_count_scale_factor: int
 ):
-    # Initialize list of thresholds to run model with
-    distance_thresholds = np.arange(**distance_threshold_params)
+    # Mask warning from reading empty file
+    np.seterr(all="ignore")
 
-    # Get run number
+    # Initialize list of thresholds to run model with
+    distance_thresholds = np.round(np.arange(**distance_threshold_params), 2)
+
+    # Get run number for logging results
     iteration = get_iter(output_folder)
 
     # Read in each user's time series stream of typed words
     all_user_timeseries = read_data(input_folder)
 
     # Remove all time series' with fewer than minimum words
-    minimum_words = train_word_count + (genuine_decisions * instance_threshold)
+    minimum_words = train_word_count + (genuine_decisions * instance_threshold * word_count_scale_factor)
     valid_arrays = [arr for arr in all_user_timeseries if get_array_length(arr) >= minimum_words]
+    num_users = len(valid_arrays)
 
-    print(len(valid_arrays))
 
-    # 
+    # Split each array into train and test
+    train_arrays = []
+    test_arrays = []
+    for array in valid_arrays:
+        train_arrays.append(array[:train_word_count])
+        test_arrays.append(array[train_word_count:])
 
-    pass
+    # Generate user_profiles from training data, used for comparison against test
+    user_profiles = [process_train(array) for array in train_arrays]
+
+    # Main Loop will iterate over each user to find TPR, FPR, and decision intervals
+    result_dict = {}
+    for idx in range(num_users):
+
+        # get this user's data
+        user_profile = user_profiles[idx]
+        genuine_array = test_arrays[idx]
+
+        # any array other than the current is an imposter
+        imposter_arrays = test_arrays[:idx] + test_arrays[idx+1:]
+
+        # Compare genuine array to user_profile until specified # of decisions made
+        
+        # Compare imposter arrays to user_profile until specified # of decisions made per
+        
+
 
 def single_main():
     results = simulation(
@@ -105,7 +153,8 @@ def single_main():
         train_word_count = 1000,
         num_imposters = 10,
         imposter_decisions = 2,
-        genuine_decisions = 20
+        genuine_decisions = 20,
+        word_count_scale_factor = 50
     )
 
 if __name__ == "__main__":

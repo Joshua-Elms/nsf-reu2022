@@ -1,4 +1,5 @@
 import numpy as np
+from fastdist import fastdist
 from pathlib import PurePath
 import os
 import csv

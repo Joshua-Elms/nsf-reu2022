@@ -1,6 +1,7 @@
 from cv2 import sqrt
 import numpy as np
 from scipy.linalg import sqrtm
+from numba import jit
 
 def Euclidean(train: np.ndarray, test: np.ndarray, threshold: float) -> np.ndarray:
     """
@@ -76,7 +77,8 @@ def Scaled_Manhattan(train: np.ndarray, test: np.ndarray) -> np.ndarray:
     Returns: vector of length = len(test)
     """
     model = np.mean(train, axis = 0)
-    std = np.std(train, axis = 0)
+    std_bad = np.std(train, axis = 0)
+    std = np.where(std_bad == 0, 1, std_bad)
     diffs = model - test
     abs_diffs = np.absolute(diffs) / std # optionally mad instead of std, but std performs marginally better
     sum_diffs = np.sum(abs_diffs, axis = 1)
