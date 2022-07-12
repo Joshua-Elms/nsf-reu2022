@@ -1,5 +1,5 @@
-from multiprocessing.sharedctypes import Value
 from typing import Callable
+from cv2 import normalize
 import numpy as np
 from pathlib import PurePath
 import os
@@ -108,14 +108,59 @@ def get_words_for_decision(
         # Compares instances, not unique words
         if word in valid_profile:
             instance_cnt += 1
-
-
-        # Populate shared_word list with tuples containing the word string and timing vector (lst)
-        shared_words.append((word, ngraph_vector))
-
-    print(f"Decision timestamp: {timestamp}")
+            shared_words.append((word, ngraph_vector))
 
     return shared_words, timestamp, furthest_idx_pos_reached
+
+def make_decision(
+    profile,
+    test,
+    dist,
+    thresholds,
+    fusion,
+    normalize
+): 
+    # Pass over each word in test and use dist to compare it to the profile, then add distance to distances list
+    distances = []
+    weights = []
+    for instance in test:
+        word, test_ngraph_vector = instance
+        word_in_profile = profile[word]
+
+        # initialize weights according to fusion parameter
+        if fusion == "equal":
+            weights.append(1)
+
+        elif fusion == "proportional_to_length":
+            weights.append(len(word))
+
+        # pull out all timing vectors for that word in the training profile
+        train_ngraph_nest_lst = [word_in_profile["timing_vectors"][i][1] for i in range(word_in_profile["occurence_count"])]
+        train_graph_matrix = np.array(train_ngraph_nest_lst)
+
+        # normalize data ((X - mean) / std) if normalize == True to allow thresholding to be less variable
+        if normalize:
+            std = np.std(train_graph_matrix, axis = 0)
+            mean =  np.mean(train_graph_matrix, axis = 0)
+            train_graph_matrix = (train_graph_matrix - mean) / std
+            test_ngraph_vector = (test_ngraph_vector - mean) / std
+
+        # calculate the distance from mean of training vectors to test vector
+        distance = dist(X = train_graph_matrix, y = test_ngraph_vector)
+        distances.append(distance)
+
+    # compare distance to threshold levels to get their votes
+    votes_by_threshold = np.array([np.where(distances > threshold, -1, 1).tolist() for threshold in thresholds])
+
+    # multiply votes by their respective weights and then sum
+    weights_matrix = np.array(weights)[np.newaxis, :]
+    weights_x_votes = weights_matrix * votes_by_threshold
+    sums_by_threshold = np.sum(weights_x_votes, axis = 0)
+
+    # If the summed weights x votes are >= 0, that will be considered genuine (1); < 0 is imposter (0)
+    decisions_by_threshold = np.where(sums_by_threshold > 0, 1, 0)
+
+    return decisions_by_threshold
 
 def simulation(
     input_folder: PurePath,
@@ -126,10 +171,11 @@ def simulation(
     instance_threshold: int,
     train_word_count: int,
     num_imposters: int, 
-    imposter_decisions: int,
-    genuine_decisions: int, 
+    num_imposter_decisions: int,
+    num_genuine_decisions: int, 
     word_count_scale_factor: int,
-    user_cnt: int
+    user_cnt: int, 
+    normalize_data: bool
 ):
     # Mask warning from reading empty file
     np.seterr(all="ignore")
@@ -144,14 +190,13 @@ def simulation(
     all_user_timeseries = read_data(input_folder)
 
     # Remove all time series' with fewer than minimum words
-    minimum_words = train_word_count + (genuine_decisions * instance_threshold * word_count_scale_factor)
+    minimum_words = train_word_count + (num_genuine_decisions * instance_threshold * word_count_scale_factor)
     valid_arrays = [arr for arr in all_user_timeseries if get_array_length(arr) >= minimum_words]
-    del all_user_timeseries
 
+    # Only take first user_cnt arrays, raise error if parameter is invalid
     try:
         desired_arrays = valid_arrays[:user_cnt]
-        num_users = len(valid_arrays)
-        del valid_arrays
+        num_users = len(desired_arrays)
 
     except IndexError:
         raise(ValueError(f"Only {len(valid_arrays)} users present, you passed user_cnt = {user_cnt}"))
@@ -179,17 +224,36 @@ def simulation(
         imposter_arrays = test_arrays[:idx] + test_arrays[idx+1:]
 
         # Compare genuine array to user_profile until specified # of decisions made
-        for decision_num in range(genuine_decisions):
+        for decision_num in range(num_genuine_decisions):
+            # First iter needs to init last_idx_pos as starting position for get_words
             if decision_num == 0:
                 last_idx_pos = 0
-            words_for_decision, decision_timestamp, last_idx_pos = get_words_for_decision(profile = user_profile, 
-                                                        test = genuine_array, 
-                                                        o_threshold = occurence_threshold, 
-                                                        i_threshold = instance_threshold,
-                                                        start = last_idx_pos)
+
+            # No decision occurs here, just grabbing the first i_threshold words that are shared by profile
+            words_for_decision, decision_timestamp, last_idx_pos = get_words_for_decision(
+                                                                    profile = user_profile, 
+                                                                    test = genuine_array, 
+                                                                    o_threshold = occurence_threshold, 
+                                                                    i_threshold = instance_threshold,
+                                                                    start = last_idx_pos
+                                                                    )
+
+            # Distance calc for each timing vector in words_for_decision, compared against each of decision_threshold
+            genuine_decisions = make_decision(
+                        profile = user_profile,
+                        test = words_for_decision,
+                        dist = distance_metric,
+                        thresholds = distance_thresholds,
+                        fusion = "proportional_to_length",
+                        normalize = normalize_data
+                        )
+            
+            # TPR calc'd from genuine user: predicted genuine / total predicted, or mean() since 1 == genuine
+            tpr =  genuine_decisions.mean()
+            print(tpr)
 
         # Compare imposter arrays to user_profile until specified # of decisions made per
-        
+        pass
 
 
 def single_main():
@@ -197,15 +261,16 @@ def single_main():
         input_folder = PurePath("data/user_time_series/"),
         output_folder = PurePath("continuous_authentication/simulation/results/"),
         distance_metric = Manhattan,
-        distance_threshold_params = {"start": 0, "stop": 10, "step": 3},
+        distance_threshold_params = {"start": 0, "stop": 35, "step": 5},
         occurence_threshold = 3, 
         instance_threshold = 5,
         train_word_count = 1000,
         num_imposters = 10,
-        imposter_decisions = 2,
-        genuine_decisions = 1,
+        num_imposter_decisions = 2,
+        num_genuine_decisions = 1,
         word_count_scale_factor = 50,
-        user_cnt = -1
+        user_cnt = -1, # -1 yields all users
+        normalize_data = True
     )
 
 if __name__ == "__main__":
