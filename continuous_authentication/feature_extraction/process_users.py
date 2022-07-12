@@ -3,13 +3,13 @@ import os
 import json
 from time import perf_counter as pfc
 import sys
-sys.path.append("../../")
+sys.path.append(os.getcwd())
 
 from parse_utils import *
 
 def write_batch_to_json():
-    c2_path = PurePath("../../data/clarkson2_files")
-    user_profile_folder = PurePath("../../data/user_json_files/")
+    c2_path = PurePath("data/clarkson2_files")
+    user_profile_folder = PurePath("data/user_json_files/")
     files = os.listdir(c2_path)
 
     times = []

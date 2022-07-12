@@ -1,13 +1,19 @@
 from typing import Callable
-from cv2 import normalize
 import numpy as np
 from pathlib import PurePath
 import os
+from datetime import datetime, timedelta
 from time import perf_counter
 import sys
 sys.path.append(os.getcwd())
 from continuous_authentication.feature_extraction.parse_utils import *
 from continuous_authentication.simulation.models import *
+
+def ticks_to_datetime(binary_time: int) -> datetime:
+    binary_time_string = f"{binary_time:064b}"
+    time_microseconds = int(binary_time_string[2:], 2) / 10
+    time_difference = timedelta(microseconds=time_microseconds)
+    return datetime(1, 1, 1) + time_difference
 
 def get_iter(counter_folder):
 
@@ -155,10 +161,10 @@ def make_decision(
     # multiply votes by their respective weights and then sum
     weights_matrix = np.array(weights)[np.newaxis, :]
     weights_x_votes = weights_matrix * votes_by_threshold
-    sums_by_threshold = np.sum(weights_x_votes, axis = 0)
+    sums_by_threshold = np.sum(weights_x_votes, axis = 1)
 
     # If the summed weights x votes are >= 0, that will be considered genuine (1); < 0 is imposter (0)
-    decisions_by_threshold = np.where(sums_by_threshold > 0, 1, 0)
+    decisions_by_threshold = np.where(sums_by_threshold > 0, 1, 0).tolist()
 
     return decisions_by_threshold
 
@@ -182,6 +188,7 @@ def simulation(
 
     # Initialize list of thresholds to run model with
     distance_thresholds = np.round(np.arange(**distance_threshold_params), 2)
+    rng = np.random.default_rng()
 
     # Get run number for logging results
     iteration = get_iter(output_folder)
@@ -213,7 +220,12 @@ def simulation(
     user_profiles = [process_train(array) for array in train_arrays]
 
     # Main Loop will iterate over each user to find TPR, FPR, and decision intervals
-    result_dict = {}
+    tpr_aggregate = [[] for _ in distance_thresholds]
+    fpr_aggregate = [[] for _ in distance_thresholds]
+    decision_intervals_genuine = []
+    decision_intervals_imposter = []
+    last_decision_timestamp = None
+
     for idx in range(num_users):
 
         # get this user's data
@@ -221,8 +233,10 @@ def simulation(
         genuine_array = test_arrays[idx]
 
         # any array other than the current is an imposter
-        imposter_arrays = test_arrays[:idx] + test_arrays[idx+1:]
+        non_user_arrays = test_arrays[:idx] + test_arrays[idx+1:]
+        imposter_arrays = rng.choice(non_user_arrays, size = min(num_imposters, num_users - 1))
 
+        ### Calc TPR ###
         # Compare genuine array to user_profile until specified # of decisions made
         for decision_num in range(num_genuine_decisions):
             # First iter needs to init last_idx_pos as starting position for get_words
@@ -230,6 +244,7 @@ def simulation(
                 last_idx_pos = 0
 
             # No decision occurs here, just grabbing the first i_threshold words that are shared by profile
+
             words_for_decision, decision_timestamp, last_idx_pos = get_words_for_decision(
                                                                     profile = user_profile, 
                                                                     test = genuine_array, 
@@ -248,11 +263,49 @@ def simulation(
                         normalize = normalize_data
                         )
             
-            # TPR calc'd from genuine user: predicted genuine / total predicted, or mean() since 1 == genuine
-            tpr =  genuine_decisions.mean()
-            print(tpr)
+            # Add results to tpr aggregator and genuine_intervals
+            for threshold_idx in range(len(distance_thresholds)):
+                tpr_aggregate[threshold_idx].append(genuine_decisions[threshold_idx])
 
+            if decision_num > 0:
+                interval = ticks_to_datetime(decision_timestamp) - ticks_to_datetime(last_decision_timestamp)
+                decision_intervals_genuine.append(interval.seconds)
+
+            last_decision_timestamp = decision_timestamp
+
+
+        ### Calc FPR ###
         # Compare imposter arrays to user_profile until specified # of decisions made per
+        for imposter_array in imposter_arrays:
+            for decision_num in range(num_imposter_decisions):
+
+                # First iter needs to init last_idx_pos as starting position for get_words
+                if decision_num == 0:
+                    last_idx_pos = 0
+
+                # No decision occurs here, just grabbing the first i_threshold words that are shared by profile
+                words_for_decision, decision_timestamp, last_idx_pos = get_words_for_decision(
+                                                                        profile = user_profile, 
+                                                                        test = imposter_array, 
+                                                                        o_threshold = occurence_threshold, 
+                                                                        i_threshold = instance_threshold,
+                                                                        start = last_idx_pos
+                                                                        )
+
+                # Distance calc for each timing vector in words_for_decision, compared against each of decision_threshold
+                imposter_decisions = make_decision(
+                            profile = user_profile,
+                            test = words_for_decision,
+                            dist = distance_metric,
+                            thresholds = distance_thresholds,
+                            fusion = "proportional_to_length",
+                            normalize = normalize_data
+                            )
+                
+                # Add results to tpr aggregator
+                for threshold_idx in range(len(distance_thresholds)):
+                    fpr_aggregate[threshold_idx].append(imposter_decisions[threshold_idx])
+            
         pass
 
 
@@ -261,15 +314,15 @@ def single_main():
         input_folder = PurePath("data/user_time_series/"),
         output_folder = PurePath("continuous_authentication/simulation/results/"),
         distance_metric = Manhattan,
-        distance_threshold_params = {"start": 0, "stop": 35, "step": 5},
+        distance_threshold_params = {"start": 0, "stop": 10, "step": 5},
         occurence_threshold = 3, 
         instance_threshold = 5,
         train_word_count = 1000,
-        num_imposters = 10,
+        num_imposters = 5,
         num_imposter_decisions = 2,
-        num_genuine_decisions = 1,
+        num_genuine_decisions = 10,
         word_count_scale_factor = 50,
-        user_cnt = -1, # -1 yields all users
+        user_cnt = 3, # -1 yields all users
         normalize_data = True
     )
 
