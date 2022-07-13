@@ -9,12 +9,6 @@ sys.path.append(os.getcwd())
 from continuous_authentication.feature_extraction.parse_utils import *
 from continuous_authentication.simulation.models import *
 
-def ticks_to_datetime(binary_time: int) -> datetime:
-    binary_time_string = f"{binary_time:064b}"
-    time_microseconds = int(binary_time_string[2:], 2) / 10
-    time_difference = timedelta(microseconds=time_microseconds)
-    return datetime(1, 1, 1) + time_difference
-
 def get_iter(counter_folder):
 
     iter_num_path = PurePath(counter_folder, PurePath("iter_num.txt"))
@@ -47,7 +41,7 @@ def read_data(data_folder):
 
     # Define datatype for file
     dt = np.dtype([
-        ('timestamp', np.uint32),
+        ('timestamp', np.float64),
         ("text", np.unicode_, 16),
         ("digraphs", np.uint8),
         ("timing_vector", np.unicode_, 2048)
@@ -72,7 +66,7 @@ def process_train(train):
     user_profile_dict = {}
     for word in train:
         time, text, digraph_cnt, ngraph_str = word
-        ngraph_vector = [int(ngraph) for ngraph in ngraph_str.lstrip("[").rstrip("]").split(", ")]
+        ngraph_vector = [float(ngraph) for ngraph in ngraph_str.lstrip("[").rstrip("]").split(", ")]
 
         if text in user_profile_dict:
             user_profile_dict[text]["occurence_count"] += 1
@@ -109,7 +103,7 @@ def get_words_for_decision(
 
         # Parse line into components
         timestamp, word, digraph_cnt, ngraph_str = test[i]
-        ngraph_vector = [int(ngraph) for ngraph in ngraph_str.lstrip("[").rstrip("]").split(", ")]
+        ngraph_vector = [float(ngraph) for ngraph in ngraph_str.lstrip("[").rstrip("]").split(", ")]
 
         # Compares instances, not unique words
         if word in valid_profile:
@@ -268,8 +262,8 @@ def simulation(
                 tpr_aggregate[threshold_idx].append(genuine_decisions[threshold_idx])
 
             if decision_num > 0:
-                interval = ticks_to_datetime(decision_timestamp) - ticks_to_datetime(last_decision_timestamp)
-                decision_intervals_genuine.append(interval.seconds)
+                interval = decision_timestamp - last_decision_timestamp
+                decision_intervals_genuine.append(interval)
 
             last_decision_timestamp = decision_timestamp
 

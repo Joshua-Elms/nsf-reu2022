@@ -24,7 +24,7 @@ def gen_graph_names(word):
 
 def file_to_nested_tuples(path):
     with open(path, "r") as f: 
-        rm_newline = lambda x: (int(x[0]), int(x[1]), x[2].rstrip("\n"))
+        rm_newline = lambda x: (float(x[0]), int(x[1]), x[2].rstrip("\n"))
         nested_keystrokes = tuple(rm_newline(line.split("\t")) for line in f.readlines())
 
     return nested_keystrokes

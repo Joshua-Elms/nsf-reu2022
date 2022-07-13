@@ -37,12 +37,6 @@ def create_sorted_filtered_list(user_dict):
 
     return sorted_lst
 
-def ticks_to_datetime(binary_time: int) -> datetime:
-    binary_time_string = f"{binary_time:064b}"
-    time_microseconds = int(binary_time_string[2:], 2) / 10
-    time_difference = timedelta(microseconds=time_microseconds)
-    return datetime(1, 1, 1) + time_difference
-
 def main():
     default_json_path = PurePath("data/user_json_files/")
     default_time_series_path = PurePath("data/user_time_series/")
@@ -60,7 +54,6 @@ def main():
 
         with open(user_ts_path, "w") as f:
             for word, timestamp, timings in sorted_words:
-                timestamp = ticks_to_datetime(timestamp).timestamp()
                 f.write(f"{timestamp}\t{word}\t{len(word) - 1}\t{timings}\n")
 
         print(f"Finished writing to {user_ts_path}")
