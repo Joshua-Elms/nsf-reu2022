@@ -512,17 +512,17 @@ def single_main():
     results_folder = PurePath("continuous_authentication/simulation/results/")
     simulation_parameters = {
         "distance_metric": Euclidean,
-        "distance_threshold_params": {"start": 0, "stop": 500, "step": 5},
+        "distance_threshold_params": {"start": 0, "stop": 2000, "step": 2},
         "occurence_threshold": 3,
-        "instance_threshold": 15,
+        "instance_threshold": 10,
         "train_word_count": 1000,
         "num_imposters": 20,
         "num_imposter_decisions": 5,
-        "num_genuine_decisions": 50,
+        "num_genuine_decisions": 100,
         "word_count_scale_factor": 30,
         "user_cnt": -1,  # -1 yields all users
         "normalize_data": True,
-        "weighting": "equal",
+        "weighting": "inv_proportional_to_stdev",
     }
 
     results = simulation(
