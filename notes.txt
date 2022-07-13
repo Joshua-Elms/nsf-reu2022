@@ -1,0 +1,30 @@
+Areas for improvement:
+    hyperoptimization - 
+        grid search:
+            make list of all parameters for each category
+            run simulation with each set of params
+            record performance for all sets
+            report params for top 10 runs or whatever
+        
+    distance metrics - 
+        mahalanobis
+        chebychev?? whatever
+        scaled? see if normalization matters
+        ask if jasper has his done :)
+    
+    fusion techniques - 
+        search online for more possibilities
+        consider ML, i.e. NN or tree from ITAD
+    
+    decision intervals - 
+        write out to csv or something
+        perform visualization automatically
+        determine relationship between other params and interval, esp instance threshold
+    
+    benchmarking - 
+        benchmark sections of simulation
+        find the bottleneck and speed it up?? lol
+        might help to do this before hyperoptimization, but maybe not necessary
+    
+    discuss results w/ dave and prof - 
+        see about writing paper and what can be reported after hyperoptimization
