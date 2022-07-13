@@ -2,6 +2,7 @@ from typing import Callable
 import numpy as np
 from pathlib import PurePath
 import os
+import re
 import pyaml
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -17,7 +18,7 @@ from continuous_authentication.simulation.models import *
 def get_iter(counter_folder, increment):
 
     iter_num_path = PurePath(counter_folder, PurePath("iter_num.txt"))
-    try: 
+    try:
         with open(iter_num_path, "r") as f_r:
             iter_str = f_r.readline().strip()
 
@@ -69,7 +70,10 @@ def read_data(data_folder):
         for path in csv_files
     ]
 
-    return all_arrays
+    numbers = lambda str: re.findall("[0-9]+", str)[0]
+    users = [numbers(file) for file in files]
+
+    return all_arrays, users
 
 
 def get_array_length(array):
@@ -136,11 +140,10 @@ def get_words_for_decision(profile, test, o_threshold, i_threshold, start):
     return shared_words, timestamp, furthest_idx_pos_reached
 
 
-def make_decision(accumulator, profile, test, dist, fusion, normalize):
+def make_decision(profile, test, dist, fusion, normalize):
     # Pass over each word in test and use dist to compare it to the profile, then add distance to distances list
     distances = []
     weights = []
-    max = 0
     for instance in test:
         word, test_ngraph_vector = instance
         word_in_profile = profile[word]
@@ -178,15 +181,12 @@ def make_decision(accumulator, profile, test, dist, fusion, normalize):
             max = distance
         distances.append(distance)
 
-    # compare distance to threshold levels to get their votes
-    votes_by_threshold = np.array(
-        [np.where(distances > threshold, -1, 1).tolist() for threshold in thresholds]
-    )
-
     # multiply votes by their respective weights and then sum
-    weights_matrix = np.array(weights)[np.newaxis, :]
-    weights_x_votes = weights_matrix * votes_by_threshold
-    sums_by_threshold = np.sum(weights_x_votes, axis=1)
+    weights_matrix = np.array(weights)
+    weights_x_dists = weights_matrix * distances
+    fused_score = np.sum(weights_x_dists)
+
+    return fused_score
 
 
 def perform_decision_cycle(
@@ -195,8 +195,9 @@ def perform_decision_cycle(
     instance_threshold,
     num_decisions,
     normalize_data,
-    score_accumulator,
-    decision_intervals,
+    accumulator,
+    id,
+    gen_or_imp,
     user_profile,
     test_array,
     weighting,
@@ -218,22 +219,20 @@ def perform_decision_cycle(
         )
 
         # Distance calc for each timing vector in words_for_decision, compared against each of decision_threshold
-        decisions = make_decision(
+        score = make_decision(
             profile=user_profile,
             test=words_for_decision,
             dist=distance_metric,
-            thresholds=distance_thresholds,
             fusion=weighting,
             normalize=normalize_data,
         )
 
-        # Add results to accuracy and interval aggregators
-        for threshold_idx in range(len(distance_thresholds)):
-            accuracy_aggregator[threshold_idx].append(decisions[threshold_idx])
+        # Add results to accumulator
+        accumulator[f"user_{id}"][f"{gen_or_imp}_scores"].append(score)
 
         if decision_num > 0:
             interval = decision_timestamp - last_decision_timestamp
-            decision_intervals.append(interval)
+            accumulator[f"user_{id}"][f"{gen_or_imp}_intervals"].append(interval)
 
         last_decision_timestamp = decision_timestamp
 
@@ -242,7 +241,6 @@ def perform_decision_cycle(
 
 def simulation(
     input_folder: PurePath,
-    output_folder: PurePath,
     distance_metric: Callable,
     occurence_threshold: int,
     instance_threshold: int,
@@ -260,7 +258,7 @@ def simulation(
 
     start_read = perf_counter()
     # Read in each user's time series stream of typed words
-    all_user_timeseries = read_data(input_folder)
+    all_user_timeseries, user_ids = read_data(input_folder)
     end_read = perf_counter()
 
     print(f"Time to read in data: {round(end_read - start_read, 2)} seconds")
@@ -270,7 +268,7 @@ def simulation(
         num_genuine_decisions * instance_threshold * word_count_scale_factor
     )
     valid_arrays = [
-        arr for arr in all_user_timeseries if get_array_length(arr) >= minimum_words
+        (i, arr) for i, arr in enumerate(all_user_timeseries) if get_array_length(arr) >= minimum_words
     ]
 
     # Only take first user_cnt arrays, raise error if parameter is invalid
@@ -288,7 +286,7 @@ def simulation(
     # Split each array into train and test
     train_arrays = []
     test_arrays = []
-    for array in desired_arrays:
+    for user_id, array in desired_arrays:
         train_arrays.append(array[:train_word_count])
         test_arrays.append(array[train_word_count:])
 
@@ -296,43 +294,48 @@ def simulation(
     user_profiles = [process_train(array) for array in train_arrays]
 
     start_process = perf_counter()
-    # Main Loop will iterate over each user to find TPR, FPR, and decision intervals
-    score_accumulator = {f"user_{user}": {"genuine_scores": [], "imposter_scores": []} for user in users}
-    decision_intervals_genuine = []
-    decision_intervals_imposter = []
+    # Main Loop will iterate over each user to find scores and decision intervals
+    result_accumulator = {}
+    for id, arr in desired_arrays:
+        result_accumulator[f"user_{id}"] = {
+            "genuine_scores": [],
+            "imposter_scores": [],
+            "genuine_intervals": [],
+            "imposter_intervals": []
+        }
 
     for idx in range(num_users):
 
         # get this user's data
+        user_id = desired_arrays[idx][0]
         user_profile = user_profiles[idx]
         genuine_array = test_arrays[idx]
 
         # any array other than the current is an imposter
         rng = np.random.default_rng()
-        non_user_arrays = test_arrays[:idx] + test_arrays[idx + 1 :]
+        non_user_arrays = np.array(test_arrays[:idx] + test_arrays[idx + 1 :], dtype=object)
         imposter_arrays = rng.choice(
-            np.array(non_user_arrays, dtype=object),
+            non_user_arrays,
             size=min(num_imposters, num_users - 1),
+            replace=False
         )
 
         ### Calc TPR ###
-        # append to tpr and genuine interval lists
         perform_decision_cycle(
             distance_metric=distance_metric,
             occurence_threshold=occurence_threshold,
             instance_threshold=instance_threshold,
             num_decisions=num_genuine_decisions,
             normalize_data=normalize_data,
-            distance_thresholds=distance_thresholds,
-            accuracy_aggregator=tpr_aggregate,
-            decision_intervals=decision_intervals_genuine,
+            accumulator=result_accumulator,
+            id=user_id,
+            gen_or_imp="genuine",
             user_profile=user_profile,
             test_array=genuine_array,
             weighting=weighting,
         )
 
         ### Calc FPR ###
-        # Compare imposter arrays to user_profile until specified # of decisions made per
         for imposter_array in imposter_arrays:
             perform_decision_cycle(
                 distance_metric=distance_metric,
@@ -340,23 +343,18 @@ def simulation(
                 instance_threshold=instance_threshold,
                 num_decisions=num_imposter_decisions,
                 normalize_data=normalize_data,
-                distance_thresholds=distance_thresholds,
-                accuracy_aggregator=fpr_aggregate,
-                decision_intervals=decision_intervals_imposter,
+                accumulator=result_accumulator,
+                id=user_id,
+                gen_or_imp="imposter",
                 user_profile=user_profile,
                 test_array=imposter_array,
                 weighting=weighting,
             )
 
-    end_process = perf_counter() 
+    end_process = perf_counter()
     print(f"Time to process data: {round(end_process - start_process, 2)} seconds")
 
-    return (
-        tpr_aggregate,
-        fpr_aggregate,
-        decision_intervals_genuine,
-        decision_intervals_imposter,
-    )
+    return result_accumulator
 
 
 def calc_tpr_fpr(decisions):
@@ -461,7 +459,6 @@ def postprocessing(
     metadata = deepcopy(simulation_params)
     metadata["distance_metric"] = metadata["distance_metric"].__name__
 
-
     # log metadata to yaml file so that simulation conditions can be replicated and reported
     metadata_path = PurePath(fullpath, PurePath(f"params_{iteration}.yaml"))
     dump_to_yaml(metadata_path, metadata)
@@ -488,12 +485,12 @@ def postprocessing(
 
     # Plot ROC Curve
     plot_ROC_curve(
-        tpr=tpr_by_thresh, 
-        fpr=fpr_by_thresh, 
-        thresholds=dist_thresholds, 
-        performance=model_perf, 
-        run_num=iteration, 
-        output_folder=fullpath
+        tpr=tpr_by_thresh,
+        fpr=fpr_by_thresh,
+        thresholds=dist_thresholds,
+        performance=model_perf,
+        run_num=iteration,
+        output_folder=fullpath,
     )
 
     print(f"Saved output of postprocessing for simulation {iteration}")
@@ -504,7 +501,6 @@ def single_main():
     results_folder = PurePath("continuous_authentication/simulation/results/")
     simulation_parameters = {
         "distance_metric": Euclidean,
-        "distance_threshold_params": {"start": 0, "stop": 2500, "step": 10},
         "occurence_threshold": 3,
         "instance_threshold": 5,
         "train_word_count": 1000,
@@ -517,9 +513,7 @@ def single_main():
         "weighting": "inv_proportional_to_stdev",
     }
 
-    results = simulation(
-        input_folder=ts_data, output_folder=results_folder, **simulation_parameters
-    )
+    results = simulation(input_folder=ts_data, **simulation_parameters)
 
     postprocessing(
         simulation_params=simulation_parameters,
