@@ -134,7 +134,7 @@ keystroke_dynamics/.DS_Store
 
 # Ignore user local copies of data
 data/
-continous_authentication/simulation/results/*
+continuous_authentication/simulation/results/*
 
 # Ignore personal launch.json
 .vscode/launch.json

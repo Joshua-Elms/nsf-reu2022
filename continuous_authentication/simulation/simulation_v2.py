@@ -17,28 +17,32 @@ from continuous_authentication.simulation.models import *
 def get_iter(counter_folder, increment):
 
     iter_num_path = PurePath(counter_folder, PurePath("iter_num.txt"))
-    with open(iter_num_path, "r") as f_r:
-        iter_str = f_r.readline().strip()
+    try: 
+        with open(iter_num_path, "r") as f_r:
+            iter_str = f_r.readline().strip()
 
-        try:
-            iter = int(iter_str)
+            try:
+                iter = int(iter_str)
 
-        except ValueError:
-            iter = None
-            print(
-                f"No valid iteration counter detected, file: {iter_num_path} added and set to 1\n"
-            )
+            except ValueError:
+                iter = None
+                print(
+                    f"No valid iteration counter detected, file: {iter_num_path} added and set to 1\n"
+                )
 
-        if isinstance(iter, int):
-            next_iter = iter + 1
+            if isinstance(iter, int):
+                next_iter = iter + 1
 
-        else:
-            next_iter = 1
+            else:
+                next_iter = 1
 
-    if increment:
         with open(iter_num_path, "w") as f_w:
             f_w.write(str(next_iter))
 
+    except FileNotFoundError:
+        with open(iter_num_path, "w") as f_w:
+            f_w.write("2")
+        iter = 1
     return iter
 
 
@@ -262,8 +266,12 @@ def simulation(
     distance_thresholds = np.round(np.arange(**distance_threshold_params), 2)
     rng = np.random.default_rng()
 
+    start_read = perf_counter()
     # Read in each user's time series stream of typed words
     all_user_timeseries = read_data(input_folder)
+    end_read = perf_counter()
+
+    print(f"Time to read in data: {end_read - start_read} seconds")
 
     # Remove all time series' with fewer than minimum words
     minimum_words = train_word_count + (
@@ -295,6 +303,7 @@ def simulation(
     # Generate user_profiles from training data, used for comparison against test
     user_profiles = [process_train(array) for array in train_arrays]
 
+    start_process = perf_counter()
     # Main Loop will iterate over each user to find TPR, FPR, and decision intervals
     tpr_aggregate = [[] for _ in distance_thresholds]
     fpr_aggregate = [[] for _ in distance_thresholds]
@@ -346,6 +355,9 @@ def simulation(
                 test_array=imposter_array,
                 weighting=weighting,
             )
+
+    end_process = perf_counter() 
+    print(f"Time to process data: {end_process - start_process} seconds")
 
     return (
         tpr_aggregate,
@@ -499,10 +511,10 @@ def single_main():
     ts_data = PurePath("data/user_time_series/")
     results_folder = PurePath("continuous_authentication/simulation/results/")
     simulation_parameters = {
-        "distance_metric": Manhattan,
-        "distance_threshold_params": {"start": 0, "stop": 100, "step": 1},
+        "distance_metric": Euclidean,
+        "distance_threshold_params": {"start": 0, "stop": 500, "step": 5},
         "occurence_threshold": 3,
-        "instance_threshold": 10,
+        "instance_threshold": 15,
         "train_word_count": 1000,
         "num_imposters": 20,
         "num_imposter_decisions": 5,
@@ -510,7 +522,7 @@ def single_main():
         "word_count_scale_factor": 30,
         "user_cnt": -1,  # -1 yields all users
         "normalize_data": True,
-        "weighting": "inv_proportional_to_stdev",
+        "weighting": "equal",
     }
 
     results = simulation(
