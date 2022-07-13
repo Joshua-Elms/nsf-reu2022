@@ -28,7 +28,7 @@ def main():
     for i, file in enumerate(files):
         print(f"{i}: {file}")
         df = pd.read_csv(PurePath(read_path, PurePath(file)), sep = "\t", header = None)
-        df.iloc[:, 0] = df.iloc[:, 0].apply(ticks_to_unix) * 1000
+        df.iloc[:, 0] = df.iloc[:, 0].apply(ticks_to_unix)
         df.to_csv(PurePath(write_path, PurePath(file)), sep = "\t", header = None, index = False)
         # print(df)
         # contents = file_to_nested_tuples(PurePath(read_path, PurePath(file)))
