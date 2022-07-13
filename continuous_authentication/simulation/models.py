@@ -25,24 +25,6 @@ def Euclidean(train: np.ndarray, test: np.ndarray, threshold: float) -> np.ndarr
 
     return imposter_vector
 
-def z_score(train: np.ndarray, test: np.ndarray, threshold: float) -> np.ndarray:
-    '''
-    compare the zscore to 1.69
-    '''
-    mean = np.mean(train, axis = 0)
-    #list of std
-    std = np.std(train, axis = 0, ddof = 1)
-    #list of zscore
-    zscore = np.absolute((test - mean)/std)
-    vec_labels = np.where(zscore<threshold, 1,0)
-    thresh2 = .5
-    test_sums = np.sum(vec_labels, axis = 1)
-    test_size = test.shape[1]
-    ratio = test_sums/test_size
-    pred_labels = np.where(ratio<thresh2, 0, 1)
-
-    return pred_labels
-
 def Manhattan(X: np.ndarray, y: np.ndarray) -> float:
     """
     Calculate arithmetic mean of train along axis 1 (model)
@@ -81,7 +63,7 @@ def Scaled_Manhattan(X: np.ndarray, y: np.ndarray) -> np.ndarray:
     std = np.where(std_bad == 0, 1, std_bad)
     diffs = model - y
     abs_diffs = np.absolute(diffs) / std # optionally mad instead of std, but std performs marginally better
-    sum_diffs = np.sum(abs_diffs, axis = 1)
+    sum_diffs = np.sum(abs_diffs)
 
     return sum_diffs
 

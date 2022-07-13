@@ -2,36 +2,45 @@ from typing import Callable
 import numpy as np
 from pathlib import PurePath
 import os
-from datetime import datetime, timedelta
+import pyaml
+import matplotlib.pyplot as plt
+import seaborn as sns
+from copy import deepcopy
 from time import perf_counter
 import sys
+
 sys.path.append(os.getcwd())
 from continuous_authentication.feature_extraction.parse_utils import *
 from continuous_authentication.simulation.models import *
 
-def get_iter(counter_folder):
+
+def get_iter(counter_folder, increment):
 
     iter_num_path = PurePath(counter_folder, PurePath("iter_num.txt"))
     with open(iter_num_path, "r") as f_r:
         iter_str = f_r.readline().strip()
 
-        try: 
+        try:
             iter = int(iter_str)
 
         except ValueError:
             iter = None
-            print(f"No valid iteration counter detected, file: {iter_num_path} added and set to 1")
+            print(
+                f"No valid iteration counter detected, file: {iter_num_path} added and set to 1\n"
+            )
 
         if isinstance(iter, int):
             next_iter = iter + 1
-        
+
         else:
             next_iter = 1
 
-    with open(iter_num_path, "w") as f_w:
-        f_w.write(str(next_iter))
-        
-    return iter        
+    if increment:
+        with open(iter_num_path, "w") as f_w:
+            f_w.write(str(next_iter))
+
+    return iter
+
 
 def read_data(data_folder):
     # Generate a list of all csv's in data folder
@@ -40,18 +49,24 @@ def read_data(data_folder):
     csv_files = [file for file in files if get_ext(file) == ".csv"]
 
     # Define datatype for file
-    dt = np.dtype([
-        ('timestamp', np.float64),
-        ("text", np.unicode_, 16),
-        ("digraphs", np.uint8),
-        ("timing_vector", np.unicode_, 2048)
-        ])
+    dt = np.dtype(
+        [
+            ("timestamp", np.float64),
+            ("text", np.unicode_, 16),
+            ("digraphs", np.uint8),
+            ("timing_vector", np.unicode_, 2048),
+        ]
+    )
 
     # Create list of all user csv's as ndarrays
     csv_path = lambda folder, file: PurePath(folder, PurePath(file))
-    all_arrays = [np.genfromtxt(csv_path(data_folder, path), dtype = np.dtype(dt), delimiter = "\t") for path in csv_files]
+    all_arrays = [
+        np.genfromtxt(csv_path(data_folder, path), dtype=np.dtype(dt), delimiter="\t")
+        for path in csv_files
+    ]
 
     return all_arrays
+
 
 def get_array_length(array):
     try:
@@ -62,33 +77,35 @@ def get_array_length(array):
 
     return length
 
+
 def process_train(train):
     user_profile_dict = {}
     for word in train:
         time, text, digraph_cnt, ngraph_str = word
-        ngraph_vector = [float(ngraph) for ngraph in ngraph_str.lstrip("[").rstrip("]").split(", ")]
+        ngraph_vector = [
+            float(ngraph) for ngraph in ngraph_str.lstrip("[").rstrip("]").split(", ")
+        ]
 
         if text in user_profile_dict:
             user_profile_dict[text]["occurence_count"] += 1
             user_profile_dict[text]["timing_vectors"].append([time, ngraph_vector])
-        
+
         else:
             user_profile_dict[text] = {
                 "occurence_count": 1,
-                "timing_vectors": [[time, ngraph_vector]]
+                "timing_vectors": [[time, ngraph_vector]],
             }
 
     return user_profile_dict
 
-def get_words_for_decision(
-    profile, 
-    test, 
-    o_threshold, 
-    i_threshold, 
-    start
-    ):
+
+def get_words_for_decision(profile, test, o_threshold, i_threshold, start):
     # Filter out any words in profile w/ fewer than o_threshold occurences
-    valid_profile = {word: content for word, content in profile.items() if content["occurence_count"] >= o_threshold}
+    valid_profile = {
+        word: content
+        for word, content in profile.items()
+        if content["occurence_count"] >= o_threshold
+    }
 
     # iterate through test data from designated start to finish until instance counter reaches threshold
     instance_cnt = 0
@@ -103,7 +120,9 @@ def get_words_for_decision(
 
         # Parse line into components
         timestamp, word, digraph_cnt, ngraph_str = test[i]
-        ngraph_vector = [float(ngraph) for ngraph in ngraph_str.lstrip("[").rstrip("]").split(", ")]
+        ngraph_vector = [
+            float(ngraph) for ngraph in ngraph_str.lstrip("[").rstrip("]").split(", ")
+        ]
 
         # Compares instances, not unique words
         if word in valid_profile:
@@ -112,20 +131,21 @@ def get_words_for_decision(
 
     return shared_words, timestamp, furthest_idx_pos_reached
 
-def make_decision(
-    profile,
-    test,
-    dist,
-    thresholds,
-    fusion,
-    normalize
-): 
+
+def make_decision(profile, test, dist, thresholds, fusion, normalize):
     # Pass over each word in test and use dist to compare it to the profile, then add distance to distances list
     distances = []
     weights = []
     for instance in test:
         word, test_ngraph_vector = instance
         word_in_profile = profile[word]
+
+        # pull out all timing vectors for that word in the training profile
+        train_ngraph_nest_lst = [
+            word_in_profile["timing_vectors"][i][1]
+            for i in range(word_in_profile["occurence_count"])
+        ]
+        train_graph_matrix = np.array(train_ngraph_nest_lst)
 
         # initialize weights according to fusion parameter
         if fusion == "equal":
@@ -134,48 +154,106 @@ def make_decision(
         elif fusion == "proportional_to_length":
             weights.append(len(word))
 
-        # pull out all timing vectors for that word in the training profile
-        train_ngraph_nest_lst = [word_in_profile["timing_vectors"][i][1] for i in range(word_in_profile["occurence_count"])]
-        train_graph_matrix = np.array(train_ngraph_nest_lst)
+        elif fusion == "inv_proportional_to_stdev":
+            std = np.std(train_graph_matrix, axis=0)
+            mean_std = std.mean()
+            inv_mean_std = 1 / mean_std
+            weights.append(inv_mean_std)
 
         # normalize data ((X - mean) / std) if normalize == True to allow thresholding to be less variable
         if normalize:
-            std = np.std(train_graph_matrix, axis = 0)
-            mean =  np.mean(train_graph_matrix, axis = 0)
+            std = np.std(train_graph_matrix, axis=0)
+            mean = np.mean(train_graph_matrix, axis=0)
             train_graph_matrix = (train_graph_matrix - mean) / std
             test_ngraph_vector = (test_ngraph_vector - mean) / std
 
         # calculate the distance from mean of training vectors to test vector
-        distance = dist(X = train_graph_matrix, y = test_ngraph_vector)
+        distance = dist(X=train_graph_matrix, y=test_ngraph_vector)
         distances.append(distance)
 
     # compare distance to threshold levels to get their votes
-    votes_by_threshold = np.array([np.where(distances > threshold, -1, 1).tolist() for threshold in thresholds])
+    votes_by_threshold = np.array(
+        [np.where(distances > threshold, -1, 1).tolist() for threshold in thresholds]
+    )
 
     # multiply votes by their respective weights and then sum
     weights_matrix = np.array(weights)[np.newaxis, :]
     weights_x_votes = weights_matrix * votes_by_threshold
-    sums_by_threshold = np.sum(weights_x_votes, axis = 1)
+    sums_by_threshold = np.sum(weights_x_votes, axis=1)
 
     # If the summed weights x votes are >= 0, that will be considered genuine (1); < 0 is imposter (0)
     decisions_by_threshold = np.where(sums_by_threshold > 0, 1, 0).tolist()
 
     return decisions_by_threshold
 
+
+def perform_decision_cycle(
+    distance_metric,
+    occurence_threshold,
+    instance_threshold,
+    num_decisions,
+    normalize_data,
+    distance_thresholds,
+    accuracy_aggregator,
+    decision_intervals,
+    user_profile,
+    test_array,
+    weighting,
+):
+    # Compare genuine array to user_profile until specified # of decisions made
+    for decision_num in range(num_decisions):
+        # First iter needs to init last_idx_pos as starting position for get_words
+        if decision_num == 0:
+            last_idx_pos = 0
+
+        # No decision occurs here, just grabbing the first i_threshold words that are shared by profile
+
+        words_for_decision, decision_timestamp, last_idx_pos = get_words_for_decision(
+            profile=user_profile,
+            test=test_array,
+            o_threshold=occurence_threshold,
+            i_threshold=instance_threshold,
+            start=last_idx_pos,
+        )
+
+        # Distance calc for each timing vector in words_for_decision, compared against each of decision_threshold
+        decisions = make_decision(
+            profile=user_profile,
+            test=words_for_decision,
+            dist=distance_metric,
+            thresholds=distance_thresholds,
+            fusion=weighting,
+            normalize=normalize_data,
+        )
+
+        # Add results to accuracy and interval aggregators
+        for threshold_idx in range(len(distance_thresholds)):
+            accuracy_aggregator[threshold_idx].append(decisions[threshold_idx])
+
+        if decision_num > 0:
+            interval = decision_timestamp - last_decision_timestamp
+            decision_intervals.append(interval)
+
+        last_decision_timestamp = decision_timestamp
+
+        pass
+
+
 def simulation(
     input_folder: PurePath,
     output_folder: PurePath,
     distance_metric: Callable,
     distance_threshold_params: dict,
-    occurence_threshold: int, 
+    occurence_threshold: int,
     instance_threshold: int,
     train_word_count: int,
-    num_imposters: int, 
+    num_imposters: int,
     num_imposter_decisions: int,
-    num_genuine_decisions: int, 
+    num_genuine_decisions: int,
     word_count_scale_factor: int,
-    user_cnt: int, 
-    normalize_data: bool
+    user_cnt: int,
+    normalize_data: bool,
+    weighting: str,
 ):
     # Mask warning from reading empty file
     np.seterr(all="ignore")
@@ -184,15 +262,16 @@ def simulation(
     distance_thresholds = np.round(np.arange(**distance_threshold_params), 2)
     rng = np.random.default_rng()
 
-    # Get run number for logging results
-    iteration = get_iter(output_folder)
-
     # Read in each user's time series stream of typed words
     all_user_timeseries = read_data(input_folder)
 
     # Remove all time series' with fewer than minimum words
-    minimum_words = train_word_count + (num_genuine_decisions * instance_threshold * word_count_scale_factor)
-    valid_arrays = [arr for arr in all_user_timeseries if get_array_length(arr) >= minimum_words]
+    minimum_words = train_word_count + (
+        num_genuine_decisions * instance_threshold * word_count_scale_factor
+    )
+    valid_arrays = [
+        arr for arr in all_user_timeseries if get_array_length(arr) >= minimum_words
+    ]
 
     # Only take first user_cnt arrays, raise error if parameter is invalid
     try:
@@ -200,8 +279,11 @@ def simulation(
         num_users = len(desired_arrays)
 
     except IndexError:
-        raise(ValueError(f"Only {len(valid_arrays)} users present, you passed user_cnt = {user_cnt}"))
-
+        raise (
+            ValueError(
+                f"Only {len(valid_arrays)} users present, you passed user_cnt = {user_cnt}"
+            )
+        )
 
     # Split each array into train and test
     train_arrays = []
@@ -218,7 +300,6 @@ def simulation(
     fpr_aggregate = [[] for _ in distance_thresholds]
     decision_intervals_genuine = []
     decision_intervals_imposter = []
-    last_decision_timestamp = None
 
     for idx in range(num_users):
 
@@ -227,99 +308,224 @@ def simulation(
         genuine_array = test_arrays[idx]
 
         # any array other than the current is an imposter
-        non_user_arrays = test_arrays[:idx] + test_arrays[idx+1:]
-        imposter_arrays = rng.choice(non_user_arrays, size = min(num_imposters, num_users - 1))
+        non_user_arrays = test_arrays[:idx] + test_arrays[idx + 1 :]
+        imposter_arrays = rng.choice(
+            np.array(non_user_arrays, dtype=object),
+            size=min(num_imposters, num_users - 1),
+        )
 
         ### Calc TPR ###
-        # Compare genuine array to user_profile until specified # of decisions made
-        for decision_num in range(num_genuine_decisions):
-            # First iter needs to init last_idx_pos as starting position for get_words
-            if decision_num == 0:
-                last_idx_pos = 0
-
-            # No decision occurs here, just grabbing the first i_threshold words that are shared by profile
-
-            words_for_decision, decision_timestamp, last_idx_pos = get_words_for_decision(
-                                                                    profile = user_profile, 
-                                                                    test = genuine_array, 
-                                                                    o_threshold = occurence_threshold, 
-                                                                    i_threshold = instance_threshold,
-                                                                    start = last_idx_pos
-                                                                    )
-
-            # Distance calc for each timing vector in words_for_decision, compared against each of decision_threshold
-            genuine_decisions = make_decision(
-                        profile = user_profile,
-                        test = words_for_decision,
-                        dist = distance_metric,
-                        thresholds = distance_thresholds,
-                        fusion = "proportional_to_length",
-                        normalize = normalize_data
-                        )
-            
-            # Add results to tpr aggregator and genuine_intervals
-            for threshold_idx in range(len(distance_thresholds)):
-                tpr_aggregate[threshold_idx].append(genuine_decisions[threshold_idx])
-
-            if decision_num > 0:
-                interval = decision_timestamp - last_decision_timestamp
-                decision_intervals_genuine.append(interval)
-
-            last_decision_timestamp = decision_timestamp
-
+        # append to tpr and genuine interval lists
+        perform_decision_cycle(
+            distance_metric=distance_metric,
+            occurence_threshold=occurence_threshold,
+            instance_threshold=instance_threshold,
+            num_decisions=num_genuine_decisions,
+            normalize_data=normalize_data,
+            distance_thresholds=distance_thresholds,
+            accuracy_aggregator=tpr_aggregate,
+            decision_intervals=decision_intervals_genuine,
+            user_profile=user_profile,
+            test_array=genuine_array,
+            weighting=weighting,
+        )
 
         ### Calc FPR ###
         # Compare imposter arrays to user_profile until specified # of decisions made per
         for imposter_array in imposter_arrays:
-            for decision_num in range(num_imposter_decisions):
+            perform_decision_cycle(
+                distance_metric=distance_metric,
+                occurence_threshold=occurence_threshold,
+                instance_threshold=instance_threshold,
+                num_decisions=num_imposter_decisions,
+                normalize_data=normalize_data,
+                distance_thresholds=distance_thresholds,
+                accuracy_aggregator=fpr_aggregate,
+                decision_intervals=decision_intervals_imposter,
+                user_profile=user_profile,
+                test_array=imposter_array,
+                weighting=weighting,
+            )
 
-                # First iter needs to init last_idx_pos as starting position for get_words
-                if decision_num == 0:
-                    last_idx_pos = 0
+    return (
+        tpr_aggregate,
+        fpr_aggregate,
+        decision_intervals_genuine,
+        decision_intervals_imposter,
+    )
 
-                # No decision occurs here, just grabbing the first i_threshold words that are shared by profile
-                words_for_decision, decision_timestamp, last_idx_pos = get_words_for_decision(
-                                                                        profile = user_profile, 
-                                                                        test = imposter_array, 
-                                                                        o_threshold = occurence_threshold, 
-                                                                        i_threshold = instance_threshold,
-                                                                        start = last_idx_pos
-                                                                        )
 
-                # Distance calc for each timing vector in words_for_decision, compared against each of decision_threshold
-                imposter_decisions = make_decision(
-                            profile = user_profile,
-                            test = words_for_decision,
-                            dist = distance_metric,
-                            thresholds = distance_thresholds,
-                            fusion = "proportional_to_length",
-                            normalize = normalize_data
-                            )
-                
-                # Add results to tpr aggregator
-                for threshold_idx in range(len(distance_thresholds)):
-                    fpr_aggregate[threshold_idx].append(imposter_decisions[threshold_idx])
-            
-        pass
+def calc_tpr_fpr(decisions):
+
+    decision_arr = np.array(decisions)
+
+    mean_by_row = np.mean(decision_arr, axis=1)
+
+    return mean_by_row.tolist()
+
+
+def calc_model_performance(tpr, fpr, thresholds):
+    performance_dict = {}
+
+    # calculating auc
+    performance_dict["AUC"] = np.trapz(y=tpr, x=fpr)
+
+    # calculating eer
+    tnr = 1 - np.array(tpr)
+    scores = np.array((tnr, fpr)).T
+    diffs = np.absolute(scores[:, 0] - scores[:, 1])
+    min_index = np.argmin(diffs)
+    lowest_threshold = thresholds[min_index]
+    eer = (tnr[min_index] + fpr[min_index]) / 2
+    performance_dict["EER"] = eer
+    performance_dict["Threshold"] = lowest_threshold
+
+    return performance_dict
+
+
+def plot_ROC_curve(tpr, fpr, thresholds, performance, run_num, output_folder):
+    fig, ax = plt.subplots()
+    ax.fill_between(fpr, tpr)
+    sns.scatterplot(x=fpr, y=tpr, ax=ax)
+    ax.set_xlabel("False Positive Rate")
+    ax.set_ylabel("True Positive Rate")
+
+    v, h = 0.1, 0.1
+    ax.set_xlim(0 - h, 1 + h)
+    ax.set_ylim(0 - v, 1 + v)
+
+    # Loop through the data points
+    for i, threshold in enumerate(thresholds):
+        plt.text(fpr[i], tpr[i], threshold)
+
+    vals = [i for i in np.arange(0, 1, 0.01)]
+    xp = [i for i in np.arange(1, 0, -0.01)]
+    sns.lineplot(x=vals, y=vals, ax=ax, color="red")
+    sns.lineplot(x=vals, y=xp, ax=ax, color="green")
+    fig.suptitle(f"ROC Curve: Simulation {run_num}")
+    fig.set_size_inches(10, 7)
+    start = 0.2
+    gap = 0.2
+    height = 1.05
+    plt.text(start, height, f"EER: {round(performance['EER'] * 100, 1)}%")
+    plt.text(start + gap, height, f"Threshold: {round(performance['Threshold'], 3)}")
+    plt.text(start + 2 * gap + 0.05, height, f"AUC: {round(performance['AUC'], 3)}")
+
+    out = PurePath(output_folder, PurePath(f"roc_curve_{run_num}.png"))
+    plt.savefig(out, dpi=400)
+
+
+def dump_to_yaml(path, object):
+    with open(path, "w") as f_log:
+        dump = pyaml.dump(object)
+        f_log.write(dump)
+
+
+def format_plots():
+    SMALL_SIZE = 12
+    MEDIUM_SIZE = 18
+    BIGGER_SIZE = 26
+    CHONK_SIZE = 32
+    font = {"family": "DIN Condensed", "weight": "bold", "size": SMALL_SIZE}
+    plt.rc("font", **font)
+    plt.rc("axes", titlesize=BIGGER_SIZE, labelsize=MEDIUM_SIZE, facecolor="xkcd:white")
+    plt.rc("xtick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
+    plt.rc("ytick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
+    plt.rc("legend", fontsize=SMALL_SIZE)  # legend fontsize
+    plt.rc(
+        "figure", titlesize=CHONK_SIZE, facecolor="xkcd:white", edgecolor="xkcd:black"
+    )  #  powder blue
+
+
+def postprocessing(
+    simulation_params,
+    tpr_agg,
+    fpr_agg,
+    genuine_intervals,
+    imposter_intervals,
+    directory,
+):
+
+    # allocating a folder for each run so that metadata and model output can be contained nicely
+    iteration = get_iter(directory, increment=True)
+    folder_name = f"simulation_{iteration}"
+    fullpath = PurePath(directory, PurePath(folder_name))
+    if not os.path.exists(fullpath):
+        os.makedirs(fullpath)
+
+    # if this step is skipped, yaml dump tries and fails to write actual distance metric to output
+    metadata = deepcopy(simulation_params)
+    metadata["distance_metric"] = metadata["distance_metric"].__name__
+
+
+    # log metadata to yaml file so that simulation conditions can be replicated and reported
+    metadata_path = PurePath(fullpath, PurePath(f"params_{iteration}.yaml"))
+    dump_to_yaml(metadata_path, metadata)
+
+    # generate thresholds the same as in simulation
+    dist_thresholds = np.round(
+        np.arange(**simulation_params["distance_threshold_params"]), 2
+    )
+
+    # both of these will be lists, better for graphing and writing out
+    tpr_by_thresh, fpr_by_thresh = calc_tpr_fpr(tpr_agg), calc_tpr_fpr(fpr_agg)
+
+    # calculations for EER and optimal threshold are debatable, but I used the most reliable one from stack overflow
+    model_perf = calc_model_performance(
+        tpr=tpr_by_thresh, fpr=fpr_by_thresh, thresholds=dist_thresholds
+    )
+
+    # log model performance for meta-analysis
+    perf_path = PurePath(fullpath, PurePath(f"performance_{iteration}.yaml"))
+    dump_to_yaml(perf_path, model_perf)
+
+    # Set formatting for plots
+    format_plots()
+
+    # Plot ROC Curve
+    plot_ROC_curve(
+        tpr=tpr_by_thresh, 
+        fpr=fpr_by_thresh, 
+        thresholds=dist_thresholds, 
+        performance=model_perf, 
+        run_num=iteration, 
+        output_folder=fullpath
+    )
+
+    print(f"Saved output of postprocessing for simulation {iteration}")
 
 
 def single_main():
+    ts_data = PurePath("data/user_time_series/")
+    results_folder = PurePath("continuous_authentication/simulation/results/")
+    simulation_parameters = {
+        "distance_metric": Manhattan,
+        "distance_threshold_params": {"start": 0, "stop": 100, "step": 1},
+        "occurence_threshold": 3,
+        "instance_threshold": 10,
+        "train_word_count": 1000,
+        "num_imposters": 20,
+        "num_imposter_decisions": 5,
+        "num_genuine_decisions": 50,
+        "word_count_scale_factor": 30,
+        "user_cnt": -1,  # -1 yields all users
+        "normalize_data": True,
+        "weighting": "inv_proportional_to_stdev",
+    }
+
     results = simulation(
-        input_folder = PurePath("data/user_time_series/"),
-        output_folder = PurePath("continuous_authentication/simulation/results/"),
-        distance_metric = Manhattan,
-        distance_threshold_params = {"start": 0, "stop": 10, "step": 5},
-        occurence_threshold = 3, 
-        instance_threshold = 5,
-        train_word_count = 1000,
-        num_imposters = 5,
-        num_imposter_decisions = 2,
-        num_genuine_decisions = 10,
-        word_count_scale_factor = 50,
-        user_cnt = 3, # -1 yields all users
-        normalize_data = True
+        input_folder=ts_data, output_folder=results_folder, **simulation_parameters
     )
 
+    postprocessing(
+        simulation_params=simulation_parameters,
+        tpr_agg=results[0],
+        fpr_agg=results[1],
+        genuine_intervals=results[2],
+        imposter_intervals=results[3],
+        directory=results_folder,
+    )
+
+
 if __name__ == "__main__":
-    # main_set_params()
     single_main()
