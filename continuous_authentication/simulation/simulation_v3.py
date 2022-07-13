@@ -136,7 +136,7 @@ def get_words_for_decision(profile, test, o_threshold, i_threshold, start):
     return shared_words, timestamp, furthest_idx_pos_reached
 
 
-def make_decision(profile, test, dist, thresholds, fusion, normalize):
+def make_decision(accumulator, profile, test, dist, fusion, normalize):
     # Pass over each word in test and use dist to compare it to the profile, then add distance to distances list
     distances = []
     weights = []
@@ -188,12 +188,6 @@ def make_decision(profile, test, dist, thresholds, fusion, normalize):
     weights_x_votes = weights_matrix * votes_by_threshold
     sums_by_threshold = np.sum(weights_x_votes, axis=1)
 
-    # If the summed weights x votes are >= 0, that will be considered genuine (1); < 0 is imposter (0)
-    decisions_by_threshold = np.where(sums_by_threshold > 0, 1, 0).tolist()
-
-    print(f"Max: {max}")
-    return decisions_by_threshold
-
 
 def perform_decision_cycle(
     distance_metric,
@@ -201,8 +195,7 @@ def perform_decision_cycle(
     instance_threshold,
     num_decisions,
     normalize_data,
-    distance_thresholds,
-    accuracy_aggregator,
+    score_accumulator,
     decision_intervals,
     user_profile,
     test_array,
@@ -251,7 +244,6 @@ def simulation(
     input_folder: PurePath,
     output_folder: PurePath,
     distance_metric: Callable,
-    distance_threshold_params: dict,
     occurence_threshold: int,
     instance_threshold: int,
     train_word_count: int,
@@ -265,10 +257,6 @@ def simulation(
 ):
     # Mask warning from reading empty file
     np.seterr(all="ignore")
-
-    # Initialize list of thresholds to run model with
-    distance_thresholds = np.round(np.arange(**distance_threshold_params), 2)
-    rng = np.random.default_rng()
 
     start_read = perf_counter()
     # Read in each user's time series stream of typed words
@@ -309,8 +297,7 @@ def simulation(
 
     start_process = perf_counter()
     # Main Loop will iterate over each user to find TPR, FPR, and decision intervals
-    tpr_aggregate = [[] for _ in distance_thresholds]
-    fpr_aggregate = [[] for _ in distance_thresholds]
+    score_accumulator = {f"user_{user}": {"genuine_scores": [], "imposter_scores": []} for user in users}
     decision_intervals_genuine = []
     decision_intervals_imposter = []
 
@@ -321,6 +308,7 @@ def simulation(
         genuine_array = test_arrays[idx]
 
         # any array other than the current is an imposter
+        rng = np.random.default_rng()
         non_user_arrays = test_arrays[:idx] + test_arrays[idx + 1 :]
         imposter_arrays = rng.choice(
             np.array(non_user_arrays, dtype=object),
