@@ -3,8 +3,9 @@ import numpy as np
 from pathlib import PurePath
 import os
 import re
-from sklearn.metrics import roc_curve, roc_auc_score
+from sklearn.metrics import roc_curve, roc_auc_score, RocCurveDisplay
 import pyaml
+from scipy.stats import zscore
 import matplotlib.pyplot as plt
 import seaborn as sns
 from copy import deepcopy
@@ -141,7 +142,7 @@ def get_words_for_decision(profile, test, o_threshold, i_threshold, start):
     return shared_words, timestamp, furthest_idx_pos_reached
 
 
-def make_decision(profile, test, dist, fusion, normalize):
+def make_decision(profile, test, dist, fusion, remove_outliers):
     # Pass over each word in test and use dist to compare it to the profile, then add distance to distances list
     distances = []
     weights = []
@@ -163,20 +164,21 @@ def make_decision(profile, test, dist, fusion, normalize):
         elif fusion == "proportional_to_length":
             weights.append(len(word))
 
-        elif fusion == "inv_proportional_to_stdev":
-            std = np.std(train_graph_matrix, axis=0)
-            mean_std = std.mean()
-            inv_mean_std = 1 / mean_std
-            weights.append(inv_mean_std)
-
         # calculate the distance from mean of training vectors to test vector
         distance = dist(X=train_graph_matrix, y=test_ngraph_vector)
         distances.append(distance)
 
     # multiply votes by their respective weights and then sum
     weights_matrix = np.array(weights)
+
+    if remove_outliers:
+        abs_zscores = np.abs(zscore(distances))
+        valid_indices = np.argwhere(abs_zscores <= 3)
+        weights_matrix = weights_matrix[valid_indices]
+        distances = np.array(distances)[valid_indices]
+
     weights_x_dists = weights_matrix * distances
-    fused_score = np.sum(weights_x_dists)
+    fused_score = np.sum(weights_x_dists) / np.sum(weights_matrix)
 
     return fused_score
 
@@ -186,7 +188,7 @@ def perform_decision_cycle(
     occurence_threshold,
     instance_threshold,
     num_decisions,
-    normalize_data,
+    remove_outliers,
     accumulator,
     id,
     gen_or_imp,
@@ -216,7 +218,7 @@ def perform_decision_cycle(
             test=words_for_decision,
             dist=distance_metric,
             fusion=weighting,
-            normalize=normalize_data,
+            remove_outliers=remove_outliers,
         )
 
         # Add results to accumulator
@@ -227,6 +229,80 @@ def perform_decision_cycle(
             accumulator[f"user_{id}"][f"{gen_or_imp}_intervals"].append(interval)
 
         last_decision_timestamp = decision_timestamp
+
+
+def calc_model_performance(tpr, fpr, thresholds):
+    performance_dict = {}
+
+    # calculating auc
+    performance_dict["AUC"] = np.trapz(y=tpr, x=fpr)
+
+    # calculating eer
+    tnr = 1 - np.array(tpr)
+    scores = np.array((tnr, fpr)).T
+    diffs = np.absolute(scores[:, 0] - scores[:, 1])
+    min_index = np.argmin(diffs)
+    lowest_threshold = thresholds[min_index]
+    eer = (tnr[min_index] + fpr[min_index]) / 2
+    performance_dict["EER"] = eer
+    performance_dict["Threshold"] = lowest_threshold
+
+    return performance_dict
+
+
+def plot_ROC_curve(tpr, fpr, thresholds, performance, run_num, output_folder):
+    fig, ax = plt.subplots()
+    ax.fill_between(fpr, tpr)
+    sns.scatterplot(x=fpr, y=tpr, ax=ax)
+    ax.set_xlabel("False Positive Rate")
+    ax.set_ylabel("True Positive Rate")
+
+    v, h = 0.1, 0.1
+    ax.set_xlim(0 - h, 1 + h)
+    ax.set_ylim(0 - v, 1 + v)
+
+    # Loop through the data points
+    for i, threshold in enumerate(thresholds):
+        # plt.text(fpr[i], tpr[i], threshold)
+        pass
+
+    vals = [i for i in np.arange(0, 1, 0.01)]
+    xp = [i for i in np.arange(1, 0, -0.01)]
+    sns.lineplot(x=vals, y=vals, ax=ax, color="red")
+    sns.lineplot(x=vals, y=xp, ax=ax, color="green")
+    fig.suptitle(f"ROC Curve: Simulation {run_num}")
+    fig.set_size_inches(10, 7)
+    start = 0.2
+    gap = 0.2
+    height = 1.05
+    plt.text(start, height, f"EER: {round(performance['EER'] * 100, 1)}%")
+    plt.text(start + gap, height, f"Threshold: {round(performance['Threshold'], 3)}")
+    plt.text(start + 2 * gap + 0.05, height, f"AUC: {round(performance['AUC'], 3)}")
+
+    out = PurePath(output_folder, PurePath(f"roc_curve_{run_num}.png"))
+    plt.savefig(out, dpi=400)
+
+
+def dump_to_yaml(path, object):
+    with open(path, "w") as f_log:
+        dump = pyaml.dump(object)
+        f_log.write(dump)
+
+
+def format_plots():
+    SMALL_SIZE = 12
+    MEDIUM_SIZE = 18
+    BIGGER_SIZE = 26
+    CHONK_SIZE = 32
+    font = {"family": "DIN Condensed", "weight": "bold", "size": SMALL_SIZE}
+    plt.rc("font", **font)
+    plt.rc("axes", titlesize=BIGGER_SIZE, labelsize=MEDIUM_SIZE, facecolor="xkcd:white")
+    plt.rc("xtick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
+    plt.rc("ytick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
+    plt.rc("legend", fontsize=SMALL_SIZE)  # legend fontsize
+    plt.rc(
+        "figure", titlesize=CHONK_SIZE, facecolor="xkcd:white", edgecolor="xkcd:black"
+    )  #  powder blue
 
 
 def simulation(
@@ -240,7 +316,7 @@ def simulation(
     num_genuine_decisions: int,
     word_count_scale_factor: int,
     user_cnt: int,
-    normalize_data: bool,
+    remove_outliers: bool,
     weighting: str,
 ):
     # Mask warning from reading empty file
@@ -316,7 +392,7 @@ def simulation(
             occurence_threshold=occurence_threshold,
             instance_threshold=instance_threshold,
             num_decisions=num_genuine_decisions,
-            normalize_data=normalize_data,
+            remove_outliers=remove_outliers,
             accumulator=result_accumulator,
             id=user_id,
             gen_or_imp="genuine",
@@ -332,7 +408,7 @@ def simulation(
                 occurence_threshold=occurence_threshold,
                 instance_threshold=instance_threshold,
                 num_decisions=num_imposter_decisions,
-                normalize_data=normalize_data,
+                remove_outliers=remove_outliers,
                 accumulator=result_accumulator,
                 id=user_id,
                 gen_or_imp="imposter",
@@ -347,86 +423,11 @@ def simulation(
     return result_accumulator
 
 
-def calc_model_performance(tpr, fpr, thresholds):
-    performance_dict = {}
-
-    # calculating auc
-    performance_dict["AUC"] = np.trapz(y=tpr, x=fpr)
-
-    # calculating eer
-    tnr = 1 - np.array(tpr)
-    scores = np.array((tnr, fpr)).T
-    diffs = np.absolute(scores[:, 0] - scores[:, 1])
-    min_index = np.argmin(diffs)
-    lowest_threshold = thresholds[min_index]
-    eer = (tnr[min_index] + fpr[min_index]) / 2
-    performance_dict["EER"] = eer
-    performance_dict["Threshold"] = lowest_threshold
-
-    return performance_dict
-
-
-def plot_ROC_curve(tpr, fpr, thresholds, performance, run_num, output_folder):
-    fig, ax = plt.subplots()
-    ax.fill_between(fpr, tpr)
-    sns.scatterplot(x=fpr, y=tpr, ax=ax)
-    ax.set_xlabel("False Positive Rate")
-    ax.set_ylabel("True Positive Rate")
-
-    v, h = 0.1, 0.1
-    ax.set_xlim(0 - h, 1 + h)
-    ax.set_ylim(0 - v, 1 + v)
-
-    # Loop through the data points
-    for i, threshold in enumerate(thresholds):
-        plt.text(fpr[i], tpr[i], threshold)
-
-    vals = [i for i in np.arange(0, 1, 0.01)]
-    xp = [i for i in np.arange(1, 0, -0.01)]
-    sns.lineplot(x=vals, y=vals, ax=ax, color="red")
-    sns.lineplot(x=vals, y=xp, ax=ax, color="green")
-    fig.suptitle(f"ROC Curve: Simulation {run_num}")
-    fig.set_size_inches(10, 7)
-    start = 0.2
-    gap = 0.2
-    height = 1.05
-    plt.text(start, height, f"EER: {round(performance['EER'] * 100, 1)}%")
-    plt.text(start + gap, height, f"Threshold: {round(performance['Threshold'], 3)}")
-    plt.text(start + 2 * gap + 0.05, height, f"AUC: {round(performance['AUC'], 3)}")
-
-    out = PurePath(output_folder, PurePath(f"roc_curve_{run_num}.png"))
-    plt.savefig(out, dpi=400)
-
-
-def dump_to_yaml(path, object):
-    with open(path, "w") as f_log:
-        dump = pyaml.dump(object)
-        f_log.write(dump)
-
-
-def format_plots():
-    SMALL_SIZE = 12
-    MEDIUM_SIZE = 18
-    BIGGER_SIZE = 26
-    CHONK_SIZE = 32
-    font = {"family": "DIN Condensed", "weight": "bold", "size": SMALL_SIZE}
-    plt.rc("font", **font)
-    plt.rc("axes", titlesize=BIGGER_SIZE, labelsize=MEDIUM_SIZE, facecolor="xkcd:white")
-    plt.rc("xtick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
-    plt.rc("ytick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
-    plt.rc("legend", fontsize=SMALL_SIZE)  # legend fontsize
-    plt.rc(
-        "figure", titlesize=CHONK_SIZE, facecolor="xkcd:white", edgecolor="xkcd:black"
-    )  #  powder blue
-
-
 def postprocessing(
     simulation_params,
-    tpr_agg,
-    fpr_agg,
-    genuine_intervals,
-    imposter_intervals,
+    simulation_results,
     directory,
+    num_users_to_show
 ):
 
     # allocating a folder for each run so that metadata and model output can be contained nicely
@@ -444,17 +445,23 @@ def postprocessing(
     metadata_path = PurePath(fullpath, PurePath(f"params_{iteration}.yaml"))
     dump_to_yaml(metadata_path, metadata)
 
-    # generate thresholds the same as in simulation
-    dist_thresholds = np.round(
-        np.arange(**simulation_params["distance_threshold_params"]), 2
-    )
+    # aggregate all the genuine and imposter scores along w/ labels: genuine = 1
+    genuine_scores = np.array([content["genuine_scores"] for user, content in simulation_results.items()]).flatten()
+    imposter_scores = np.array([content["imposter_scores"] for user, content in simulation_results.items()]).flatten()
+    combined_scores = np.concatenate((genuine_scores, imposter_scores))
 
-    # both of these will be lists, better for graphing and writing out
-    tpr_by_thresh, fpr_by_thresh = calc_tpr_fpr(tpr_agg), calc_tpr_fpr(fpr_agg)
+    genuine_labels = np.ones_like(genuine_scores)
+    imposter_labels = np.zeros_like(imposter_scores)
+    # combined_labels = np.concatenate((genuine_labels, imposter_labels))
+    combined_labels = np.concatenate((imposter_labels, genuine_labels)) # this one shouldn't be right, I think I should consider genuine users to be the positively labelled ones?
+
+
+    # using sklearn method for standardization purposes
+    fprs, tprs, thresholds = roc_curve(y_true=combined_labels, y_score=combined_scores, drop_intermediate=True)
 
     # calculations for EER and optimal threshold are debatable, but I used the most reliable one from stack overflow
     model_perf = calc_model_performance(
-        tpr=tpr_by_thresh, fpr=fpr_by_thresh, thresholds=dist_thresholds
+        tpr=tprs, fpr=fprs, thresholds=thresholds
     )
 
     # log model performance for meta-analysis
@@ -466,9 +473,9 @@ def postprocessing(
 
     # Plot ROC Curve
     plot_ROC_curve(
-        tpr=tpr_by_thresh,
-        fpr=fpr_by_thresh,
-        thresholds=dist_thresholds,
+        tpr=tprs,
+        fpr=fprs,
+        thresholds=thresholds,
         performance=model_perf,
         run_num=iteration,
         output_folder=fullpath,
@@ -481,7 +488,7 @@ def single_main():
     ts_data = PurePath("data/user_time_series/")
     results_folder = PurePath("continuous_authentication/simulation/results/")
     simulation_parameters = {
-        "distance_metric": Euclidean,
+        "distance_metric": Scaled_Manhattan,
         "occurence_threshold": 3,
         "instance_threshold": 5,
         "train_word_count": 1000,
@@ -490,20 +497,18 @@ def single_main():
         "num_genuine_decisions": 30,
         "word_count_scale_factor": 30,
         "user_cnt": -1,  # -1 yields all users
-        "normalize_data": False,
-        "weighting": "proportional_to_length",
+        "remove_outliers": True, 
+        "weighting": "equal",
     }
 
     results = simulation(input_folder=ts_data, **simulation_parameters)
-    print(results)
-    # postprocessing(
-    #     simulation_params=simulation_parameters,
-    #     tpr_agg=results[0],
-    #     fpr_agg=results[1],
-    #     genuine_intervals=results[2],
-    #     imposter_intervals=results[3],
-    #     directory=results_folder,
-    # )
+    postprocessing(
+        simulation_params=simulation_parameters,
+        simulation_results=results,
+        directory=results_folder,
+        num_users_to_show=1
+    )
+
 
 
 if __name__ == "__main__":
