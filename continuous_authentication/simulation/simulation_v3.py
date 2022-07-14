@@ -3,6 +3,7 @@ import numpy as np
 from pathlib import PurePath
 import os
 import re
+from sklearn.metrics import roc_curve, roc_auc_score
 import pyaml
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -168,17 +169,8 @@ def make_decision(profile, test, dist, fusion, normalize):
             inv_mean_std = 1 / mean_std
             weights.append(inv_mean_std)
 
-        # normalize data ((X - mean) / std) if normalize == True to allow thresholding to be less variable
-        if normalize:
-            std = np.std(train_graph_matrix, axis=0)
-            mean = np.mean(train_graph_matrix, axis=0)
-            train_graph_matrix = (train_graph_matrix - mean) / std
-            test_ngraph_vector = (test_ngraph_vector - mean) / std
-
         # calculate the distance from mean of training vectors to test vector
         distance = dist(X=train_graph_matrix, y=test_ngraph_vector)
-        if distance > max:
-            max = distance
         distances.append(distance)
 
     # multiply votes by their respective weights and then sum
@@ -236,8 +228,6 @@ def perform_decision_cycle(
 
         last_decision_timestamp = decision_timestamp
 
-        pass
-
 
 def simulation(
     input_folder: PurePath,
@@ -286,7 +276,7 @@ def simulation(
     # Split each array into train and test
     train_arrays = []
     test_arrays = []
-    for user_id, array in desired_arrays:
+    for i, array in desired_arrays:
         train_arrays.append(array[:train_word_count])
         test_arrays.append(array[train_word_count:])
 
@@ -296,8 +286,8 @@ def simulation(
     start_process = perf_counter()
     # Main Loop will iterate over each user to find scores and decision intervals
     result_accumulator = {}
-    for id, arr in desired_arrays:
-        result_accumulator[f"user_{id}"] = {
+    for i, arr in desired_arrays:
+        result_accumulator[f"user_{user_ids[i]}"] = {
             "genuine_scores": [],
             "imposter_scores": [],
             "genuine_intervals": [],
@@ -307,7 +297,7 @@ def simulation(
     for idx in range(num_users):
 
         # get this user's data
-        user_id = desired_arrays[idx][0]
+        user_id = user_ids[desired_arrays[idx][0]]
         user_profile = user_profiles[idx]
         genuine_array = test_arrays[idx]
 
@@ -355,15 +345,6 @@ def simulation(
     print(f"Time to process data: {round(end_process - start_process, 2)} seconds")
 
     return result_accumulator
-
-
-def calc_tpr_fpr(decisions):
-
-    decision_arr = np.array(decisions)
-
-    mean_by_row = np.mean(decision_arr, axis=1)
-
-    return mean_by_row.tolist()
 
 
 def calc_model_performance(tpr, fpr, thresholds):
@@ -504,25 +485,25 @@ def single_main():
         "occurence_threshold": 3,
         "instance_threshold": 5,
         "train_word_count": 1000,
-        "num_imposters": 20,
-        "num_imposter_decisions": 5,
-        "num_genuine_decisions": 50,
+        "num_imposters": 10,
+        "num_imposter_decisions": 3,
+        "num_genuine_decisions": 30,
         "word_count_scale_factor": 30,
         "user_cnt": -1,  # -1 yields all users
-        "normalize_data": True,
-        "weighting": "inv_proportional_to_stdev",
+        "normalize_data": False,
+        "weighting": "proportional_to_length",
     }
 
     results = simulation(input_folder=ts_data, **simulation_parameters)
-
-    postprocessing(
-        simulation_params=simulation_parameters,
-        tpr_agg=results[0],
-        fpr_agg=results[1],
-        genuine_intervals=results[2],
-        imposter_intervals=results[3],
-        directory=results_folder,
-    )
+    print(results)
+    # postprocessing(
+    #     simulation_params=simulation_parameters,
+    #     tpr_agg=results[0],
+    #     fpr_agg=results[1],
+    #     genuine_intervals=results[2],
+    #     imposter_intervals=results[3],
+    #     directory=results_folder,
+    # )
 
 
 if __name__ == "__main__":
