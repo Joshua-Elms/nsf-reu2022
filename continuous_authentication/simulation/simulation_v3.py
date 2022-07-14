@@ -2,6 +2,7 @@ from typing import Callable
 import numpy as np
 from pathlib import PurePath
 import os
+from json import dump
 import re
 from sklearn.metrics import roc_curve, roc_auc_score, RocCurveDisplay
 import pyaml
@@ -490,7 +491,7 @@ def single_main():
     simulation_parameters = {
         "distance_metric": Scaled_Manhattan,
         "occurence_threshold": 3,
-        "instance_threshold": 5,
+        "instance_threshold": 10,
         "train_word_count": 1000,
         "num_imposters": 10,
         "num_imposter_decisions": 3,
@@ -498,16 +499,18 @@ def single_main():
         "word_count_scale_factor": 30,
         "user_cnt": -1,  # -1 yields all users
         "remove_outliers": True, 
-        "weighting": "equal",
+        "weighting": "proportional_to_length",
     }
 
     results = simulation(input_folder=ts_data, **simulation_parameters)
-    postprocessing(
-        simulation_params=simulation_parameters,
-        simulation_results=results,
-        directory=results_folder,
-        num_users_to_show=1
-    )
+    with open("data.json", "w") as f:
+        dump(results, f, indent=4)
+    # postprocessing(
+    #     simulation_params=simulation_parameters,
+    #     simulation_results=results,
+    #     directory=results_folder,
+    #     num_users_to_show=1
+    # )
 
 
 
