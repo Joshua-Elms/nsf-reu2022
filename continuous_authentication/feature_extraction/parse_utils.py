@@ -153,15 +153,15 @@ def parse_word(word_indices, raw_keystrokes):
         this_letter = order_dict[key]
         this_d, this_u = this_letter
         mono = this_u[0] - this_d[0]
-        monographs.append(mono)
+        # monographs.append(mono) # if this is commented out, it means no monographs will end up in data
 
         if i < num_letters - 1:
             next_letter = order_dict[dict_keys[i + 1]]
             next_d, next_u = next_letter
             digraphs.append(next_d[0] - this_d[0]) # dd
-            digraphs.append(next_u[0] - this_d[0]) # du
-            digraphs.append(next_d[0] - this_u[0]) # ud
-            digraphs.append(next_u[0] - this_u[0]) # uu
+            # digraphs.append(next_u[0] - this_d[0]) # du
+            # digraphs.append(next_d[0] - this_u[0]) # ud
+            # digraphs.append(next_u[0] - this_u[0]) # uu
         
     ### Combine results and prep for output ###
     word = "".join([key[0] for key in dict_keys])

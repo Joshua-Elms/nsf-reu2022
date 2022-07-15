@@ -17,6 +17,3 @@ def format_plots():
     plt.rc(
         "figure", titlesize=CHONK_SIZE, facecolor="xkcd:white", edgecolor="xkcd:black"
     )  #  powder blue
-
-
-def
