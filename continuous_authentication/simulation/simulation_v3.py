@@ -178,8 +178,8 @@ def make_decision(profile, test, dist, fusion, remove_outliers):
         weights_matrix = weights_matrix[valid_indices]
         distances = np.array(distances)[valid_indices]
 
-    weights_x_dists = weights_matrix * distances
-    fused_score = np.sum(weights_x_dists) / np.sum(weights_matrix)
+    # weights_x_dists = weights_matrix * distances
+    fused_score = np.sum(distances) / np.sum(weights_matrix)
 
     return fused_score
 
@@ -496,10 +496,10 @@ def single_main():
         "num_imposters": 10,
         "num_imposter_decisions": 3,
         "num_genuine_decisions": 30,
-        "word_count_scale_factor": 30,
+        "word_count_scale_factor": 50,
         "user_cnt": -1,  # -1 yields all users
         "remove_outliers": True, 
-        "weighting": "equal",
+        "weighting": "proportional_to_length",
     }
 
     results = simulation(input_folder=ts_data, **simulation_parameters)
