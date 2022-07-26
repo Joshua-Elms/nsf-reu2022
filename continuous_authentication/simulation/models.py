@@ -56,14 +56,16 @@ def Scaled_Manhattan(X: np.ndarray, y: np.ndarray) -> np.ndarray:
 
     Returns: vector of length = len(test)
     """
+    N = len(y)
     model = np.mean(X, axis = 0)
     std_bad = np.std(X, axis = 0)
     std = np.where(std_bad == 0, 1, std_bad)
     diffs = model - y
     abs_diffs = np.absolute(diffs) / std # optionally mad instead of std, but std performs marginally better
     sum_diffs = np.sum(abs_diffs)
+    regularized_diffs = sum_diffs / N
 
-    return sum_diffs
+    return regularized_diffs
 
 # def Zhong_Deng(train: np.ndarray, test: np.ndarray) -> np.ndarray:
 #     S_inv_sqrt = np.linalg.inv(sqrtm(np.cov(train, rowvar = False))) 

@@ -140,7 +140,6 @@ def make_decision(profile, test, dist, thresholds, fusion, normalize):
     # Pass over each word in test and use dist to compare it to the profile, then add distance to distances list
     distances = []
     weights = []
-    max = 0
     for instance in test:
         word, test_ngraph_vector = instance
         word_in_profile = profile[word]
@@ -174,8 +173,6 @@ def make_decision(profile, test, dist, thresholds, fusion, normalize):
 
         # calculate the distance from mean of training vectors to test vector
         distance = dist(X=train_graph_matrix, y=test_ngraph_vector)
-        if distance > max:
-            max = distance
         distances.append(distance)
 
     # compare distance to threshold levels to get their votes
@@ -191,7 +188,6 @@ def make_decision(profile, test, dist, thresholds, fusion, normalize):
     # If the summed weights x votes are >= 0, that will be considered genuine (1); < 0 is imposter (0)
     decisions_by_threshold = np.where(sums_by_threshold > 0, 1, 0).tolist()
 
-    print(f"Max: {max}")
     return decisions_by_threshold
 
 
@@ -516,13 +512,13 @@ def single_main():
     results_folder = PurePath("continuous_authentication/simulation/results/")
     simulation_parameters = {
         "distance_metric": Euclidean,
-        "distance_threshold_params": {"start": 0, "stop": 2500, "step": 10},
-        "occurence_threshold": 3,
-        "instance_threshold": 5,
-        "train_word_count": 1000,
-        "num_imposters": 20,
+        "distance_threshold_params": {"start": 0, "stop": 25000, "step": 5},
+        "occurence_threshold": 35,
+        "instance_threshold": 24,
+        "train_word_count": 2500,
+        "num_imposters": 6,
         "num_imposter_decisions": 5,
-        "num_genuine_decisions": 50,
+        "num_genuine_decisions": 30,
         "word_count_scale_factor": 30,
         "user_cnt": -1,  # -1 yields all users
         "normalize_data": True,

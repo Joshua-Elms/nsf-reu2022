@@ -110,7 +110,7 @@ def process_train(train):
     return user_profile_dict
 
 
-def get_words_for_decision(profile, test, o_threshold, i_threshold, start):
+def get_words_for_decision(profile, test, o_threshold, i_threshold, start, is_instance):
     # Filter out any words in profile w/ fewer than o_threshold occurences
     valid_profile = {
         word: content
@@ -121,6 +121,7 @@ def get_words_for_decision(profile, test, o_threshold, i_threshold, start):
     # iterate through test data from designated start to finish until instance counter reaches threshold
     instance_cnt = 0
     shared_words = []
+    set_of_shared_words = set()
     furthest_idx_pos_reached = 0
     for i in range(start, len(test)):
 
@@ -135,10 +136,14 @@ def get_words_for_decision(profile, test, o_threshold, i_threshold, start):
             float(ngraph) for ngraph in ngraph_str.lstrip("[").rstrip("]").split(", ")
         ]
 
-        # Compares instances, not unique words
         if word in valid_profile:
+            if not is_instance:
+                if word in set_of_shared_words:
+                    continue
             instance_cnt += 1
+            set_of_shared_words.add(word)
             shared_words.append((word, ngraph_vector))
+
 
     return shared_words, timestamp, furthest_idx_pos_reached
 
@@ -196,6 +201,7 @@ def perform_decision_cycle(
     user_profile,
     test_array,
     weighting,
+    i_based
 ):
     # Compare genuine array to user_profile until specified # of decisions made
     for decision_num in range(num_decisions):
@@ -211,6 +217,7 @@ def perform_decision_cycle(
             o_threshold=occurence_threshold,
             i_threshold=instance_threshold,
             start=last_idx_pos,
+            is_instance=i_based
         )
 
         # Distance calc for each timing vector in words_for_decision, compared against each of decision_threshold
@@ -319,6 +326,7 @@ def simulation(
     user_cnt: int,
     remove_outliers: bool,
     weighting: str,
+    i_based: bool,
 ):
     # Mask warning from reading empty file
     np.seterr(all="ignore")
@@ -400,6 +408,7 @@ def simulation(
             user_profile=user_profile,
             test_array=genuine_array,
             weighting=weighting,
+            i_based=i_based
         )
 
         ### Calc FPR ###
@@ -416,6 +425,7 @@ def simulation(
                 user_profile=user_profile,
                 test_array=imposter_array,
                 weighting=weighting,
+                i_based=i_based
             )
 
     end_process = perf_counter()
@@ -491,7 +501,7 @@ def single_main():
     simulation_parameters = {
         "distance_metric": Scaled_Manhattan,
         "occurence_threshold": 3,
-        "instance_threshold": 5,
+        "instance_threshold": 4,
         "train_word_count": 1000,
         "num_imposters": 10,
         "num_imposter_decisions": 3,
@@ -500,6 +510,7 @@ def single_main():
         "user_cnt": -1,  # -1 yields all users
         "remove_outliers": True, 
         "weighting": "proportional_to_length",
+        "i_based": False
     }
 
     results = simulation(input_folder=ts_data, **simulation_parameters)
