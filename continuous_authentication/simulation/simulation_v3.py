@@ -500,7 +500,7 @@ def single_main():
     results_folder = PurePath("continuous_authentication/simulation/results/")
     simulation_parameters = {
         "distance_metric": Scaled_Manhattan,
-        "occurence_threshold": 3,
+        "occurence_threshold": 10,
         "instance_threshold": 4,
         "train_word_count": 1000,
         "num_imposters": 10,
@@ -525,4 +525,4 @@ def single_main():
 
 
 if __name__ == "__main__":
-    single_main()
+    single_main() 
