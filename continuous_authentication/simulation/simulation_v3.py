@@ -163,12 +163,7 @@ def make_decision(profile, test, dist, fusion, remove_outliers):
         ]
         train_graph_matrix = np.array(train_ngraph_nest_lst)
 
-        # initialize weights according to fusion parameter
-        if fusion == "equal":
-            weights.append(1)
-
-        elif fusion == "proportional_to_length":
-            weights.append(len(word))
+        weights.append(len(word))
 
         # calculate the distance from mean of training vectors to test vector
         distance = dist(X=train_graph_matrix, y=test_ngraph_vector)
@@ -183,8 +178,11 @@ def make_decision(profile, test, dist, fusion, remove_outliers):
         weights_matrix = weights_matrix[valid_indices]
         distances = np.array(distances)[valid_indices]
 
-    # weights_x_dists = weights_matrix * distances
-    fused_score = np.sum(distances) / np.sum(weights_matrix)
+    # # old version of this
+    # fused_score = np.sum(distances) / np.sum(weights_matrix)
+
+    # new version of this
+    fused_score = np.average(distance)
 
     return fused_score
 
@@ -395,7 +393,7 @@ def simulation(
             replace=False
         )
 
-        ### Calc TPR ###
+        ### Gets scores for user ###
         perform_decision_cycle(
             distance_metric=distance_metric,
             occurence_threshold=occurence_threshold,
@@ -411,7 +409,7 @@ def simulation(
             i_based=i_based
         )
 
-        ### Calc FPR ###
+        ### Gets scores for imposters ###
         for imposter_array in imposter_arrays:
             perform_decision_cycle(
                 distance_metric=distance_metric,
@@ -500,8 +498,8 @@ def single_main():
     results_folder = PurePath("continuous_authentication/simulation/results/")
     simulation_parameters = {
         "distance_metric": Scaled_Manhattan,
-        "occurence_threshold": 10,
-        "instance_threshold": 4,
+        "occurence_threshold": 5,
+        "instance_threshold": 15,
         "train_word_count": 1000,
         "num_imposters": 10,
         "num_imposter_decisions": 3,
