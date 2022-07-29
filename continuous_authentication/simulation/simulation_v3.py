@@ -201,11 +201,15 @@ def perform_decision_cycle(
     weighting,
     i_based
 ):
+    duct_tape = []
     # Compare genuine array to user_profile until specified # of decisions made
     for decision_num in range(num_decisions):
         # First iter needs to init last_idx_pos as starting position for get_words
         if decision_num == 0:
             last_idx_pos = 0
+
+        if last_idx_pos >= len(test_array):
+            break
 
         # No decision occurs here, just grabbing the first i_threshold words that are shared by profile
 
@@ -227,12 +231,16 @@ def perform_decision_cycle(
             remove_outliers=remove_outliers,
         )
 
+        if decision_timestamp in duct_tape:
+            break
+
         # Add results to accumulator
         accumulator[f"user_{id}"][f"{gen_or_imp}_scores"].append(score)
 
         if decision_num > 0:
             interval = decision_timestamp - last_decision_timestamp
             accumulator[f"user_{id}"][f"{gen_or_imp}_intervals"].append(interval)
+            duct_tape.append(decision_timestamp)
 
         last_decision_timestamp = decision_timestamp
 
@@ -455,14 +463,14 @@ def postprocessing(
     dump_to_yaml(metadata_path, metadata)
 
     # aggregate all the genuine and imposter scores along w/ labels: genuine = 1
-    genuine_scores = np.array([content["genuine_scores"] for user, content in simulation_results.items()]).flatten()
-    imposter_scores = np.array([content["imposter_scores"] for user, content in simulation_results.items()]).flatten()
+    genuine_scores = np.hstack(np.array([np.array(content["genuine_scores"]) for user, content in simulation_results.items()]))
+    imposter_scores = np.hstack(np.array([np.array(content["imposter_scores"]) for user, content in simulation_results.items()]))
     combined_scores = np.concatenate((genuine_scores, imposter_scores))
 
     genuine_labels = np.ones_like(genuine_scores)
     imposter_labels = np.zeros_like(imposter_scores)
     # combined_labels = np.concatenate((genuine_labels, imposter_labels))
-    combined_labels = np.concatenate((imposter_labels, genuine_labels)) # this one shouldn't be right, I think I should consider genuine users to be the positively labelled ones?
+    combined_labels = np.concatenate((imposter_labels, genuine_labels)).astype(int) # this one shouldn't be right, I think I should consider genuine users to be the positively labelled ones?
 
 
     # using sklearn method for standardization purposes

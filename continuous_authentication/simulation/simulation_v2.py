@@ -512,7 +512,6 @@ def single_main():
     results_folder = PurePath("continuous_authentication/simulation/results/")
     simulation_parameters = {
         "distance_metric": Euclidean,
-        "distance_threshold_params": {"start": 0, "stop": 25000, "step": 5},
         "occurence_threshold": 35,
         "instance_threshold": 24,
         "train_word_count": 2500,
